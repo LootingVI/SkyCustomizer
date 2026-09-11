@@ -1,0 +1,7 @@
+{
+  "key.category.skycustomizer.keys": "SkyCustomizer",
+  "key.skycustomizer.openConfig": "Open SkyCustomizer Config",
+  "modmenu.descriptionTranslation.skycustomizer": "Hypixel SkyBlock client-side customizer — custom name, scoreboard, items, armor, level colors 0-600+, chat, visuals — fully custom modern GUI, no external libs",
+  "text.skycustomizer.levelColor": "Level Color",
+  "text.skycustomizer.enabled": "Enabled"
+}

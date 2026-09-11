@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "skycustomizer",
+  "version": "${version}",
+  "name": "SkyCustomizer",
+  "description": "Hypixel SkyBlock client-side customizer - custom name, scoreboard, item names/lore, armor colors, custom level colors (0-600+), chat filters, visuals - fully custom modern GUI - Fabric 26.1.2",
+  "authors": ["Flori"],
+  "contact": {
+    "homepage": "https://github.com/Flori/SkyCustomizer",
+    "sources": "https://github.com/Flori/SkyCustomizer"
+  },
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["de.flori.skycustomizer.SkyCustomizerClient"],
+    "modmenu": ["de.flori.skycustomizer.config.ModMenuIntegration"]
+  },
+  "mixins": ["skycustomizer.mixins.json"],
+  "depends": {
+    "minecraft": "~26.1.2",
+    "fabricloader": ">=0.19.0",
+    "fabric-api": "*",
+    "java": ">=25"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

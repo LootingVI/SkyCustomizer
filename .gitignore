@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+.gradle-user/
+build/
+out/
+# IDE
+.idea/
+.kiro/
+*.iml
+.minecraft/
+run/
+logs/
+net/
+config/
+# OS
+.DS_Store
+Thumbs.db
+# Config presets (user local)
+# Keep example but ignore personal presets
+# /config/skycustomizer/

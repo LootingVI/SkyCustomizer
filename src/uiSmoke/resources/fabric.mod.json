@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "skycustomizer_ui_smoke",
+  "version": "1.0.0",
+  "name": "SkyCustomizer development checks",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["de.flori.skycustomizer.config.UiSmokeTest"]
+  },
+  "depends": {
+    "skycustomizer": "*"
+  }
+}

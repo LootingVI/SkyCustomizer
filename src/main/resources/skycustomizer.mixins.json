@@ -1,0 +1,21 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "de.flori.skycustomizer.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "FontAccessor",
+    "MixinFrameTiming",
+    "MixinChatComponent",
+    "MixinPlayerTabOverlay",
+    "MixinItemStackTooltip",
+    "MixinLivingEntityRenderer",
+    "MixinBossHealthOverlay",
+    "MixinGui",
+    "MixinScoreboardSidebar",
+    "MixinEquipmentLayerRenderer"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

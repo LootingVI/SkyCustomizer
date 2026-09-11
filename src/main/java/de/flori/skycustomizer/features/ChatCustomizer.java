@@ -1,0 +1,70 @@
+package de.flori.skycustomizer.features;
+
+import de.flori.skycustomizer.config.SkyCustomizerConfig;
+import de.flori.skycustomizer.util.ColorUtil;
+import de.flori.skycustomizer.util.RegexCache;
+import de.flori.skycustomizer.util.TextUtil;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
+public final class ChatCustomizer {
+    private ChatCustomizer() {}
+    private static String lastMessage = "";
+    private static String timestampPattern;
+    private static DateTimeFormatter timestampFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+    public static Component processIncoming(Component original) {
+        var cfg = SkyCustomizerConfig.get();
+        if (!cfg.enabled) return original;
+        var chat = cfg.chat;
+        if (!chat.enabled) return chat.levelColorInChat ? LevelCustomizer.processComponent(original) : original;
+        String text = original.getString();
+        for (String hide : chat.hideMessageContains)
+            if (hide != null && !hide.isEmpty() && text.contains(hide)) return null;
+        for (String regex : chat.hideMessageRegex) {
+            var pattern = RegexCache.compile(regex);
+            if (regex != null && !regex.isEmpty() && pattern != null && pattern.matcher(text).find()) return null;
+        }
+
+        Component result = original;
+        if (chat.recolorChatTypes) {
+            for (var entry : chat.chatTypeColors.entrySet()) {
+                String tag = "[" + entry.getKey() + "]";
+                int start = text.indexOf(tag);
+                if (start < 0) { tag = entry.getKey() + " >"; start = text.indexOf(tag); }
+                if (start >= 0) {
+                    result = TextUtil.recolorRange(result, start, start + tag.length(), ColorUtil.fromHex(entry.getValue()) & 0xFFFFFF);
+                    break;
+                }
+            }
+        }
+        for (var entry : chat.highlightWords.entrySet()) {
+            String word = entry.getKey();
+            if (word == null || word.isEmpty()) continue;
+            for (int start = text.indexOf(word); start >= 0; start = text.indexOf(word, start + word.length()))
+                result = TextUtil.recolorRange(result, start, start + word.length(), ColorUtil.fromHex(entry.getValue()) & 0xFFFFFF);
+        }
+        if (chat.levelColorInChat) result = LevelCustomizer.processComponent(result);
+        if (chat.compactChat) {
+            String current = result.getString();
+            if (current.equals(lastMessage)) return null;
+            lastMessage = current;
+        } else lastMessage = "";
+
+        if (chat.timestampEnabled) {
+            if (!java.util.Objects.equals(timestampPattern, chat.timestampFormat)) {
+                timestampPattern = chat.timestampFormat;
+                try { timestampFormatter = DateTimeFormatter.ofPattern(timestampPattern); }
+                catch (IllegalArgumentException | NullPointerException ignored) { timestampFormatter = DateTimeFormatter.ofPattern("HH:mm:ss"); }
+            }
+            String time = LocalTime.now().format(timestampFormatter);
+            result = Component.literal("[" + time + "] ")
+                    .withStyle(Style.EMPTY.withColor(ColorUtil.fromHex(chat.timestampColorHex) & 0xFFFFFF))
+                    .append(result);
+        }
+        return result;
+    }
+}

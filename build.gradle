@@ -1,0 +1,88 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+repositories {
+    maven { url 'https://api.modrinth.com/maven' }
+    maven { url 'https://maven.terraformersmc.com/releases/' }
+    mavenCentral()
+}
+
+sourceSets {
+    hudCheck {
+        java.srcDir 'src/hudCheck/java'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
+    uiSmoke {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.runtimeClasspath
+    }
+}
+
+loom {
+    runs {
+        uiSmoke {
+            client()
+            source sourceSets.uiSmoke
+            configName = 'Design Studio UI smoke test'
+            runDir = 'build/ui-smoke-run'
+            vmArg '-Dskycustomizer.uiSmoke=true'
+            programArgs '--width', '1440', '--height', '900'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+}
+
+processResources {
+    def version = project.version
+    inputs.property "version", version
+    filesMatching("fabric.mod.json") {
+        expand "version": version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+tasks.register('verifyHudLayout', JavaExec) {
+    group = 'verification'
+    description = 'Checks HUD geometry, editor draft isolation, formatting, item identity and caches without starting the game.'
+    dependsOn hudCheckClasses
+    classpath = sourceSets.hudCheck.runtimeClasspath
+    mainClass = 'de.flori.skycustomizer.util.HudLayoutTest'
+}
+
+tasks.named('check') {
+    dependsOn 'verifyHudLayout', 'verifySourceUsage'
+}
+
+tasks.register('verifySourceUsage', JavaExec) {
+    group = 'verification'
+    description = 'Checks production Java members for missing source references.'
+    dependsOn hudCheckClasses
+    classpath = sourceSets.hudCheck.runtimeClasspath
+    mainClass = 'de.flori.skycustomizer.util.SourceUsageChecks'
+}
+
+tasks.named('runUiSmoke') {
+    dependsOn 'verifyHudLayout', 'uiSmokeClasses'
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            from components.java
+        }
+    }
+}
