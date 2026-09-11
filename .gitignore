@@ -11,7 +11,7 @@ out/
 run/
 logs/
 net/
-config/
+/config/
 # OS
 .DS_Store
 Thumbs.db
