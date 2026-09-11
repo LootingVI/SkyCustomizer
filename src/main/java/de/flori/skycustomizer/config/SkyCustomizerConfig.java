@@ -64,7 +64,22 @@ public class SkyCustomizerConfig {
         public float nametagOffsetY = 0.0f;
         public boolean recolorOtherPlayers = false;
         public String otherPlayerColorHex = "#FFFFFF";
+        public boolean nametagPill = false;
+        public String nametagPillColorHex = "#3B281B";
+        public boolean nametagHeadIcon = false;
+        public String nametagHeadSymbol = "●";
+        public int nametagSpacing = 1;
+        public boolean nametagDistanceFade = false;
+        public float nametagFadeStart = 32.0f;
+        public String friendPrefix = "✦ ";
+        public String friendColorHex = "#55FFFF";
+        public String guildPrefix = "◆ ";
+        public String guildColorHex = "#55FF55";
         public Map<String, String> playerAliases = new LinkedHashMap<>();
+        public Map<String, String> playerBadges = new LinkedHashMap<>();
+        public Map<String, String> rankIcons = new LinkedHashMap<>();
+        public List<String> friendNames = new ArrayList<>();
+        public List<String> guildNames = new ArrayList<>();
         public List<NametagRule> rules = new ArrayList<>();
     }
     public static class NametagRule {
@@ -144,6 +159,12 @@ public class SkyCustomizerConfig {
         public int padding = 5;
         public int lineSpacing = 1;
         public boolean titleShadow = true;
+        public float lineFontScale = 1.0f;
+        public String lineColorHex = "";
+        public String scoreColorHex = "";
+        public boolean lineAnimation = false;
+        public float lineAnimationSpeed = 1.0f;
+        public Map<String, String> lineIcons = new LinkedHashMap<>();
     }
 
     public ItemConfig items = new ItemConfig();
@@ -156,6 +177,12 @@ public class SkyCustomizerConfig {
         public boolean hideLore = false;
         public boolean hideGlint = false;
         public boolean forceGlint = false;
+        public boolean itemIconsEnabled = false;
+        public String itemIcon = "◆";
+        public boolean favoriteMarkerEnabled = true;
+        public String favoriteMarker = "★";
+        public boolean tooltipStyleEnabled = false;
+        public String tooltipAccentHex = "#FFAA00";
 
         public Map<String, String> heldItemNames = new LinkedHashMap<>();
         public Map<String, String> heldItemLore = new LinkedHashMap<>();
@@ -165,6 +192,8 @@ public class SkyCustomizerConfig {
 
         public Map<String, String> customNames = new LinkedHashMap<>();
         public Map<String, String> customLore = new LinkedHashMap<>();
+        public Map<String, String> itemTypeNames = new LinkedHashMap<>();
+        public List<String> favoriteItemTypes = new ArrayList<>();
 
         public List<RegexRule> regexRules = new ArrayList<>();
 
@@ -216,6 +245,12 @@ public class SkyCustomizerConfig {
         public String timestampColorHex = "#AAAAAA";
         public String timestampFormat = "HH:mm:ss";
         public boolean compactChat = false;
+        public String chatTheme = "CLASSIC";
+        public String chatAccentHex = "#E2944E";
+        public boolean chatAccentBar = false;
+        public boolean mentionSound = true;
+        public boolean keywordSound = false;
+        public boolean duplicateGrouping = true;
 
         public ChatConfig() {
             chatTypeColors.put("GUILD", "#55FF55");
@@ -242,6 +277,16 @@ public class SkyCustomizerConfig {
         public boolean actionbarCustom = true;
         public boolean actionbarHide = false;
         public boolean vignetteHide = true;
+        public boolean performanceHud = false;
+        public boolean performanceShowFps = true;
+        public boolean performanceShowPing = true;
+        public boolean performanceShowTps = true;
+        public float performanceHudScale = 1.0f;
+        public int performanceHudOffsetX = 0;
+        public int performanceHudOffsetY = 0;
+        public boolean performanceHudBackground = true;
+        public int performanceHudBackgroundOpacity = 110;
+        public String performanceHudColorHex = "#FFFFFF";
     }
 
     public PresetConfig presets = new PresetConfig();
@@ -397,6 +442,12 @@ public class SkyCustomizerConfig {
         if (cfg.name == null) cfg.name = new NameConfig();
         if (cfg.name.rules == null) cfg.name.rules = new ArrayList<>();
         if (cfg.name.playerAliases == null) cfg.name.playerAliases = new LinkedHashMap<>();
+        if (cfg.name.playerBadges == null) cfg.name.playerBadges = new LinkedHashMap<>();
+        if (cfg.name.rankIcons == null) cfg.name.rankIcons = new LinkedHashMap<>();
+        if (cfg.name.friendNames == null) cfg.name.friendNames = new ArrayList<>();
+        if (cfg.name.guildNames == null) cfg.name.guildNames = new ArrayList<>();
+        cfg.name.nametagSpacing = Math.clamp(cfg.name.nametagSpacing, 0, 4);
+        cfg.name.nametagFadeStart = Math.clamp(cfg.name.nametagFadeStart, 8, 64);
         if (cfg.armor == null) cfg.armor = new ArmorConfig();
         if (cfg.chat == null) cfg.chat = new ChatConfig();
         if (cfg.chat.chatTypeColors == null) cfg.chat.chatTypeColors = new LinkedHashMap<>();
@@ -413,6 +464,9 @@ public class SkyCustomizerConfig {
         if (cfg.scoreboard.hiddenLineIds == null) cfg.scoreboard.hiddenLineIds = new ArrayList<>();
         if (cfg.scoreboard.lineOrder == null) cfg.scoreboard.lineOrder = new ArrayList<>();
         if (cfg.scoreboard.backgroundImage == null) cfg.scoreboard.backgroundImage = "";
+        if (cfg.scoreboard.lineIcons == null) cfg.scoreboard.lineIcons = new LinkedHashMap<>();
+        cfg.scoreboard.lineFontScale = Math.clamp(cfg.scoreboard.lineFontScale, 0.6f, 2.0f);
+        cfg.scoreboard.lineAnimationSpeed = Math.clamp(cfg.scoreboard.lineAnimationSpeed, 0.1f, 4.0f);
         if (cfg.scoreboard.backgroundImageFit == null || !List.of("COVER", "CONTAIN", "STRETCH").contains(cfg.scoreboard.backgroundImageFit)) cfg.scoreboard.backgroundImageFit = "COVER";
         cfg.scoreboard.backgroundImageOpacity = Math.clamp(cfg.scoreboard.backgroundImageOpacity, 0, 255);
         cfg.scoreboard.backgroundImageShade = Math.clamp(cfg.scoreboard.backgroundImageShade, 0, 255);
@@ -424,8 +478,12 @@ public class SkyCustomizerConfig {
         if (cfg.items.rarityColors == null) cfg.items.rarityColors = new LinkedHashMap<>();
         if (cfg.items.customNames == null) cfg.items.customNames = new LinkedHashMap<>();
         if (cfg.items.customLore == null) cfg.items.customLore = new LinkedHashMap<>();
+        if (cfg.items.itemTypeNames == null) cfg.items.itemTypeNames = new LinkedHashMap<>();
+        if (cfg.items.favoriteItemTypes == null) cfg.items.favoriteItemTypes = new ArrayList<>();
         if (cfg.items.regexRules == null) cfg.items.regexRules = new ArrayList<>();
         if (cfg.visuals == null) cfg.visuals = new VisualsConfig();
+        cfg.visuals.performanceHudScale = Math.clamp(cfg.visuals.performanceHudScale, 0.5f, 3.0f);
+        cfg.visuals.performanceHudBackgroundOpacity = Math.clamp(cfg.visuals.performanceHudBackgroundOpacity, 0, 255);
         if (cfg.presets == null) cfg.presets = new PresetConfig();
         if (cfg.presets.savedPresets == null) cfg.presets.savedPresets = new ArrayList<>();
     }

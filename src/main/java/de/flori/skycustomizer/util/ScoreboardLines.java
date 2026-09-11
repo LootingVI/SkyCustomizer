@@ -1,6 +1,7 @@
 package de.flori.skycustomizer.util;
 
 import de.flori.skycustomizer.config.SkyCustomizerConfig.ScoreboardConfig;
+import de.flori.skycustomizer.features.ScoreboardCustomizer;
 import java.util.*;
 
 public final class ScoreboardLines {
@@ -44,7 +45,9 @@ public final class ScoreboardLines {
     }
     public static int rowY(ScoreboardConfig style, boolean title, int line) {
         int padding = Math.clamp(style.padding, 2, 14);
-        return padding + (title ? 9 + (style.compactStyle ? 2 : 4) : 0) + line * (9 + Math.clamp(style.lineSpacing, 0, 5));
+        int lineHeight = ScoreboardCustomizer.lineHeight(style);
+        return padding + (title ? 9 + (style.compactStyle ? 2 : 4) : 0)
+                + line * (lineHeight + Math.clamp(style.lineSpacing, 0, 5));
     }
     public static int hit(ScoreboardConfig style, boolean title, int count, int boardWidth,
                           double localX, double localY) {
@@ -53,7 +56,7 @@ public final class ScoreboardLines {
         if (title && localY >= padding && localY < padding + 9) return -2;
         double dy = localY - rowY(style, title, 0);
         if (dy < 0) return -1;
-        int index = (int) dy / (9 + Math.clamp(style.lineSpacing, 0, 5));
+        int index = (int) dy / (ScoreboardCustomizer.lineHeight(style) + Math.clamp(style.lineSpacing, 0, 5));
         return index < count ? index : -1;
     }
 }

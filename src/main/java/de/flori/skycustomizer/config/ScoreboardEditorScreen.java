@@ -77,6 +77,8 @@ public final class ScoreboardEditorScreen extends StudioScreen {
         number("y", "Vertical offset", () -> staged.offsetY, v -> staged.offsetY = (int)v, -10000, 10000, 1);
         number("padding", "Padding", () -> staged.padding, v -> staged.padding = (int)v, 2, 14, 1);
         number("spacing", "Line spacing", () -> staged.lineSpacing, v -> staged.lineSpacing = (int)v, 0, 5, 1);
+        number("lineScale", "Line font scale", () -> staged.lineFontScale, v -> staged.lineFontScale = (float)v, .6, 2, .05);
+        number("lineAnimation", "Line animation speed", () -> staged.lineAnimationSpeed, v -> staged.lineAnimationSpeed = (float)v, .1, 4, .05);
         refreshNumbers(); loadSelection(); startHistory();
         if (editing) { setFocused(inline); inline.setFocused(true); }
     }
@@ -265,11 +267,18 @@ public final class ScoreboardEditorScreen extends StudioScreen {
             cy = toggle(g, cy, mx, my, "Title shadow", staged.titleShadow, () -> staged.titleShadow = !staged.titleShadow);
             cy = toggle(g, cy, mx, my, "Compact spacing", staged.compactStyle, () -> staged.compactStyle = !staged.compactStyle);
             cy = toggle(g, cy, mx, my, "Rounded background", staged.roundedBackground, () -> staged.roundedBackground = !staged.roundedBackground);
-            cy = rowButtons(g, cy, mx, my, new String[]{"Title color", "Card color"}, new Runnable[]{
+            cy = toggle(g, cy, mx, my, "Animate line color", staged.lineAnimation, () -> staged.lineAnimation = !staged.lineAnimation);
+            cy = rowButtons(g, cy, mx, my, new String[]{"Title color", "Card color", "Line color"}, new Runnable[]{
                     () -> minecraft.setScreen(new ColorPickerScreen(this, staged.titleColorHex, color -> {
                         staged.titleColorHex = color; staged.customTitle = TextUtil.stripLegacyFormatting(staged.customTitle); invalidate(); loadSelection();
-                    })), this::cardColor});
-            for (String id : List.of("scale", "x", "y", "padding", "spacing")) cy = drawNumber(g, id, cy, mx, my, dt);
+                    })), this::cardColor, () -> minecraft.setScreen(new ColorPickerScreen(this, staged.lineColorHex, color -> {
+                        staged.lineColorHex = color; invalidate();
+                    }))});
+            cy = rowButtons(g, cy, mx, my, new String[]{"Score color", "Reset line colors"}, new Runnable[]{
+                    () -> minecraft.setScreen(new ColorPickerScreen(this, staged.scoreColorHex, color -> {
+                        staged.scoreColorHex = color; invalidate();
+                    })), () -> { staged.lineColorHex = ""; staged.scoreColorHex = ""; invalidate(); }});
+            for (String id : List.of("scale", "x", "y", "padding", "spacing", "lineScale", "lineAnimation")) cy = drawNumber(g, id, cy, mx, my, dt);
             if (standalone) cy = rowButtons(g, cy, mx, my, new String[]{"Save & position HUD"}, new Runnable[]{() -> {
                 if (save()) { reloadPlacement = true; minecraft.setScreen(new HudEditorScreen(this)); }
             }});

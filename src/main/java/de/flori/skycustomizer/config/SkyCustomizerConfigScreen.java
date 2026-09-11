@@ -721,10 +721,6 @@ public class SkyCustomizerConfigScreen extends StudioScreen {
         return super.charTyped(event);
     }
 
-    public boolean handleCharTyped(char character, int modifiers) {
-        return false;
-    }
-
     @Override
     public void onClose() {
         Minecraft minecraft = Minecraft.getInstance();

@@ -5,7 +5,9 @@ import de.flori.skycustomizer.util.ColorUtil;
 import de.flori.skycustomizer.util.NametagRules;
 import de.flori.skycustomizer.util.TextUtil;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 
 import java.util.ArrayList;
 import java.util.Optional;
@@ -39,9 +41,10 @@ public final class NameCustomizer {
         var rule = NametagRules.match(cfg.name.rules, username, self, NametagRules.level(result));
         if (rule != null && rule.hidden) return null;
         Component displayName = self ? customizeName(username) : otherPlayerName(username);
-        if (rule != null) return NametagRules.apply(result, username,
-                displayName == null ? Component.literal(username) : displayName, rule);
-        return displayName == null ? result : replaceUsername(result, username, displayName, false);
+        Component customized = rule != null ? NametagRules.apply(result, username,
+                displayName == null ? Component.literal(username) : displayName, rule)
+                : displayName == null ? result : replaceUsername(result, username, displayName, false);
+        return decorateNametag(customized, username);
     }
 
     private static Component otherPlayerName(String username) {
@@ -86,6 +89,72 @@ public final class NameCustomizer {
 
     public static Component customizeNametag(Component original, String username) {
         return customizePlayerNametag(original, username, true);
+    }
+
+    public static Component fadeNametag(Component original, float amount) {
+        if (original == null || amount <= 0) return original;
+        float fade = Math.clamp(amount, 0, 1);
+        MutableComponent result = Component.empty();
+        original.visit((style, text) -> {
+            TextColor color = style.getColor();
+            int rgb = color == null ? 0xFFFFFF : color.getValue();
+            int r = Math.round(((rgb >>> 16) & 255) * (1 - fade) + 36 * fade);
+            int g = Math.round(((rgb >>> 8) & 255) * (1 - fade) + 29 * fade);
+            int b = Math.round((rgb & 255) * (1 - fade) + 23 * fade);
+            result.append(Component.literal(text).withStyle(style.withColor((r << 16) | (g << 8) | b)));
+            return Optional.empty();
+        }, Style.EMPTY);
+        return result;
+    }
+
+    private static Component decorateNametag(Component tag, String username) {
+        var name = SkyCustomizerConfig.get().name;
+        if (tag == null || username == null || username.isBlank()) return tag;
+        String prefix = "";
+        String styleColor = "";
+        if (containsIgnoreCase(name.friendNames, username)) {
+            prefix += name.friendPrefix == null ? "" : name.friendPrefix;
+            styleColor = name.friendColorHex;
+        } else if (containsIgnoreCase(name.guildNames, username)) {
+            prefix += name.guildPrefix == null ? "" : name.guildPrefix;
+            styleColor = name.guildColorHex;
+        }
+        if (name.nametagHeadIcon && name.nametagHeadSymbol != null && !name.nametagHeadSymbol.isBlank()) {
+            prefix += name.nametagHeadSymbol + " ";
+        }
+        String badge = lookupIgnoreCase(name.playerBadges, username);
+        if (badge != null && !badge.isBlank()) prefix += badge + " ";
+        String source = tag.getString();
+        for (var entry : name.rankIcons.entrySet()) {
+            if (entry.getKey() != null && !entry.getKey().isBlank() && entry.getValue() != null && !entry.getValue().isBlank()
+                    && source.toLowerCase(java.util.Locale.ROOT).contains(entry.getKey().toLowerCase(java.util.Locale.ROOT))) {
+                prefix += entry.getValue() + " ";
+                break;
+            }
+        }
+        int gap = Math.clamp(name.nametagSpacing, 0, 4);
+        if (gap > 0 && !prefix.isEmpty()) prefix += " ".repeat(gap);
+        Component result = tag;
+        if (!styleColor.isBlank()) {
+            result = TextUtil.recolorRange(result, 0, result.getString().length(), ColorUtil.fromHex(styleColor) & 0xFFFFFF);
+        }
+        if (name.nametagPill) {
+            Style pill = Style.EMPTY.withColor(ColorUtil.fromHex(name.nametagPillColorHex) & 0xFFFFFF);
+            result = Component.literal("❬ ").withStyle(pill).append(result)
+                    .append(Component.literal(" ❭").withStyle(pill));
+        }
+        return prefix.isEmpty() ? result : TextUtil.parseLegacyFormatting(prefix, Style.EMPTY).append(result);
+    }
+
+    private static boolean containsIgnoreCase(java.util.List<String> names, String username) {
+        if (names == null) return false;
+        return names.stream().anyMatch(name -> name != null && name.equalsIgnoreCase(username));
+    }
+
+    private static String lookupIgnoreCase(java.util.Map<String, String> values, String username) {
+        if (values == null) return null;
+        for (var entry : values.entrySet()) if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(username)) return entry.getValue();
+        return null;
     }
 
     public static Component customizeTabName(Component original, String username) {

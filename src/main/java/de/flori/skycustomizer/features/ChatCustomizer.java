@@ -4,8 +4,10 @@ import de.flori.skycustomizer.config.SkyCustomizerConfig;
 import de.flori.skycustomizer.util.ColorUtil;
 import de.flori.skycustomizer.util.RegexCache;
 import de.flori.skycustomizer.util.TextUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
+import net.minecraft.sounds.SoundEvents;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -13,6 +15,8 @@ import java.time.format.DateTimeFormatter;
 public final class ChatCustomizer {
     private ChatCustomizer() {}
     private static String lastMessage = "";
+    private static long lastNotification;
+    private static Component latestMessage = Component.empty();
     private static String timestampPattern;
     private static DateTimeFormatter timestampFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
@@ -30,6 +34,7 @@ public final class ChatCustomizer {
         }
 
         Component result = original;
+        boolean keywordMatch = false;
         if (chat.recolorChatTypes) {
             for (var entry : chat.chatTypeColors.entrySet()) {
                 String tag = "[" + entry.getKey() + "]";
@@ -44,11 +49,17 @@ public final class ChatCustomizer {
         for (var entry : chat.highlightWords.entrySet()) {
             String word = entry.getKey();
             if (word == null || word.isEmpty()) continue;
-            for (int start = text.indexOf(word); start >= 0; start = text.indexOf(word, start + word.length()))
+            for (int start = text.indexOf(word); start >= 0; start = text.indexOf(word, start + word.length())) {
                 result = TextUtil.recolorRange(result, start, start + word.length(), ColorUtil.fromHex(entry.getValue()) & 0xFFFFFF);
+                keywordMatch = true;
+            }
         }
+        String username = Minecraft.getInstance().getUser() == null ? "" : Minecraft.getInstance().getUser().getName();
+        boolean mention = !username.isBlank() && text.toLowerCase(java.util.Locale.ROOT)
+                .contains(username.toLowerCase(java.util.Locale.ROOT));
+        if ((chat.mentionSound && mention) || (chat.keywordSound && keywordMatch)) playNotification();
         if (chat.levelColorInChat) result = LevelCustomizer.processComponent(result);
-        if (chat.compactChat) {
+        if (chat.compactChat && chat.duplicateGrouping) {
             String current = result.getString();
             if (current.equals(lastMessage)) return null;
             lastMessage = current;
@@ -65,6 +76,27 @@ public final class ChatCustomizer {
                     .withStyle(Style.EMPTY.withColor(ColorUtil.fromHex(chat.timestampColorHex) & 0xFFFFFF))
                     .append(result);
         }
+        if (chat.chatAccentBar || "ACCENT".equalsIgnoreCase(chat.chatTheme)) {
+            result = Component.literal("▎ ").withStyle(Style.EMPTY.withColor(ColorUtil.fromHex(chat.chatAccentHex) & 0xFFFFFF))
+                    .append(result);
+        }
+        latestMessage = result.copy();
         return result;
+    }
+
+    public static boolean copyLatestMessage() {
+        if (latestMessage == null || latestMessage.getString().isBlank()) return false;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.keyboardHandler == null) return false;
+        minecraft.keyboardHandler.setClipboard(latestMessage.getString());
+        return true;
+    }
+
+    private static void playNotification() {
+        long now = System.nanoTime();
+        if (now - lastNotification < 500_000_000L) return;
+        lastNotification = now;
+        var player = Minecraft.getInstance().player;
+        if (player != null) player.playSound(SoundEvents.NOTE_BLOCK_PLING.value(), .45f, 1.35f);
     }
 }

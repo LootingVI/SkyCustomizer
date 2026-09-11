@@ -1,6 +1,7 @@
 package de.flori.skycustomizer.config;
 
 import com.google.gson.Gson;
+import de.flori.skycustomizer.features.ChatCustomizer;
 import de.flori.skycustomizer.util.ColorUtil;
 import de.flori.skycustomizer.util.ItemIdentity;
 import de.flori.skycustomizer.util.RegexCache;
@@ -139,8 +140,12 @@ public final class FeatureEditorScreen extends StudioScreen {
                 }));
                 selectItem(selectedItem);
                 section("ITEM APPEARANCE", "Local display only. Your actual item data stays intact.");
-                fields("enabled,namesEnabled,loreEnabled,showOriginalName,hideLore,rarityColorsEnabled,hideGlint,forceGlint");
+                fields("enabled,namesEnabled,loreEnabled,showOriginalName,hideLore,rarityColorsEnabled,hideGlint,forceGlint,itemIconsEnabled,itemIcon,favoriteMarkerEnabled,favoriteMarker");
+                section("TOOLTIP STYLE", "Add a polished rarity accent to supported item tooltips.");
+                fields("tooltipStyleEnabled,tooltipAccentHex");
                 group("Rarity colors", "Color of item names, detected from the server rarity line.", "rarityColors", false, true, false);
+                group("Favorite item types", "Minecraft item IDs that receive the favorite marker, for example minecraft:diamond_sword.", "favoriteItemTypes", false, false, true);
+                group("Item type names", "Minecraft item ID → custom name. This runs before name pattern rules.", "itemTypeNames", false, false, false);
                 group("Name rules", "Pattern → replacement. Use {original} to include the original name.", "customNames", true, false, false);
                 group("Lore rules", "Original name contains → custom lore. Use \\n for line breaks.", "customLore", false, false, false);
                 group("Advanced regex rules", "Rules run in order when no item override or name rule matched.", "regexRules", true, false, false);
@@ -153,8 +158,14 @@ public final class FeatureEditorScreen extends StudioScreen {
                 section("WHERE TO APPLY", "Choose which displays use your custom player name.");
                 fields("applyInChat,applyInTab,applyOverHead,applyInScoreboard");
                 section("PLAYER NAMETAGS", "Adjust existing player tags; hidden vanilla tags are not revealed.");
-                fields("hidePlayerNametags,hideNametagScores,nametagMaxDistance,nametagOffsetY,recolorOtherPlayers,otherPlayerColorHex");
+                fields("hidePlayerNametags,hideNametagScores,nametagMaxDistance,nametagOffsetY,recolorOtherPlayers,otherPlayerColorHex,nametagPill,nametagPillColorHex,nametagHeadIcon,nametagHeadSymbol,nametagSpacing,nametagDistanceFade,nametagFadeStart");
                 group("Player aliases", "Exact Minecraft username → local overhead alias. Supports colors.", "playerAliases", false, false, false);
+                group("Player badges", "Exact Minecraft username → icon shown before the nametag.", "playerBadges", false, false, false);
+                group("Rank icons", "Rank text found in a tag → icon shown before the nametag.", "rankIcons", false, false, false);
+                section("FRIENDS & GUILD", "Local display styles for players you choose.");
+                fields("friendPrefix,friendColorHex,guildPrefix,guildColorHex");
+                group("Friend usernames", "Exact usernames that receive the friend style.", "friendNames", false, false, true);
+                group("Guild usernames", "Exact usernames that receive the guild style.", "guildNames", false, false, true);
                 rows.add(new ActionRow("Nametag Rules", "Designs for yourself, exact players or level ranges.", () -> minecraft.setScreen(new NametagRulesScreen(this,
                         ((SkyCustomizerConfig.NameConfig)draft).rules, rules -> {((SkyCustomizerConfig.NameConfig)draft).rules=rules;changed();checkpoint();}))));
             }
@@ -164,11 +175,13 @@ public final class FeatureEditorScreen extends StudioScreen {
             }
             case CHAT -> {
                 section("MESSAGES", "Filters and formatting apply to new incoming messages.");
-                fields("enabled,levelColorInChat,recolorChatTypes,compactChat,timestampEnabled,timestampColorHex,timestampFormat");
+                fields("enabled,levelColorInChat,recolorChatTypes,compactChat,duplicateGrouping,timestampEnabled,timestampColorHex,timestampFormat,chatTheme,chatAccentHex,chatAccentBar,mentionSound,keywordSound");
                 group("Chat colors", "Chat type → color, for example GUILD or PARTY.", "chatTypeColors", false, true, false);
                 group("Highlights", "Word → highlight color.", "highlightWords", false, true, false);
                 group("Hide containing", "Hide new messages containing any of these strings.", "hideMessageContains", false, false, true);
                 group("Hide matching regex", "Hide new messages matching these patterns.", "hideMessageRegex", true, false, true);
+                rows.add(new ActionRow("Copy Latest Message", "Copy the latest customized chat line to your clipboard.", () ->
+                        status = ChatCustomizer.copyLatestMessage() ? "Latest chat message copied" : "No chat message to copy yet"));
             }
             case VISUALS -> {
                 section("HUD & ACTIONBAR", "Use the HUD Editor to position elements by dragging.");
@@ -179,6 +192,8 @@ public final class FeatureEditorScreen extends StudioScreen {
                 fields("bossbarCustom,bossbarHide");
                 section("SCREEN OVERLAY", "Hide Minecraft's dark screen-edge vignette.");
                 fields("vignetteHide");
+                section("PERFORMANCE WIDGET", "A compact HUD panel for FPS, ping and a local TPS estimate.");
+                fields("performanceHud,performanceShowFps,performanceShowPing,performanceShowTps,performanceHudScale,performanceHudOffsetX,performanceHudOffsetY,performanceHudBackground,performanceHudBackgroundOpacity,performanceHudColorHex");
             }
             case SCOREBOARD -> {
                 rows.add(new ActionRow("Visual Line Editor", "Select sidebar lines in a live preview to edit or hide them.", () -> {
@@ -186,6 +201,9 @@ public final class FeatureEditorScreen extends StudioScreen {
                     minecraft.setScreen(new ScoreboardEditorScreen(this,(SkyCustomizerConfig.ScoreboardConfig)draft, value -> {draft=value;rebuildForm();changed();checkpoint();}));
                 }));
                 section("SIDEBAR CONTENT", "Rules preserve the server's text and colors on untouched lines.");
+                section("LINE APPEARANCE", "Scale, recolor and animate every line without changing server data.");
+                fields("lineFontScale,lineColorHex,scoreColorHex,lineAnimation,lineAnimationSpeed");
+                group("Line icons", "Text found in a line → icon placed before that line.", "lineIcons", false, false, false);
                 group("Hidden lines", "Hide sidebar lines containing any of these strings.", "hiddenLineContains", false, false, true);
                 group("Hidden exact lines", "Hide rows matching this exact visible text.", "hiddenExactLines", false, false, true);
                 group("Rename rules", "Pattern → replacement, with formatting codes.", "renameRules", true, false, false);
@@ -217,8 +235,8 @@ public final class FeatureEditorScreen extends StudioScreen {
                             } else if (field.getType() == float.class) {
                                 float number = Float.parseFloat(text.trim());
                                 if (!Float.isFinite(number)) return "Enter a finite number.";
-                                float min = key.equals("nametagOffsetY") ? -1 : key.equals("nametagMaxDistance") ? 8 : .1f;
-                                float max = key.equals("nametagOffsetY") ? 2 : key.equals("nametagMaxDistance") ? 64 : 4;
+                                float min = key.equals("nametagOffsetY") ? -1 : (key.equals("nametagMaxDistance") || key.equals("nametagFadeStart")) ? 8 : .1f;
+                                float max = key.equals("nametagOffsetY") ? 2 : (key.equals("nametagMaxDistance") || key.equals("nametagFadeStart")) ? 64 : 4;
                                 if (number < min || number > max) return "Range: " + min + " to " + max;
                                 value = number;
                             } else if (key.equals("timestampFormat")) {
@@ -243,12 +261,31 @@ public final class FeatureEditorScreen extends StudioScreen {
             case "hideGlint" -> "Hide the enchantment shine; takes priority over Force Glint.";
             case "forceGlint" -> "Show enchantment shine on all items.";
             case "rarityColorsEnabled" -> "Recolor names using rarity detected from the original lore.";
+            case "itemIconsEnabled" -> "Add the selected symbol before customized item names.";
+            case "favoriteMarkerEnabled" -> "Show a marker for item types in your favorites list.";
+            case "tooltipStyleEnabled" -> "Add rarity-colored header and footer accents to tooltip text.";
             case "nametagMaxDistance" -> "Maximum player-tag distance in blocks: 8–64.";
             case "nametagOffsetY" -> "Vertical offset in blocks: -1 to 2.";
+            case "nametagPill" -> "Frame player tags with a colored pill-shaped text treatment.";
+            case "nametagHeadIcon" -> "Show a small symbol before player tags.";
+            case "nametagDistanceFade" -> "Dim player tags smoothly after the fade-start distance.";
+            case "nametagFadeStart" -> "Start fading tags at this distance: 8–64 blocks.";
             case "hideNametagScores" -> "Hide the score or health line beneath player names.";
             case "hidePlayerNametags" -> "Hide player names and their score lines.";
             case "customName" -> "Leave empty to keep your username.";
             case "timestampFormat" -> "Example: HH:mm:ss";
+            case "chatTheme" -> "CLASSIC leaves messages unchanged; ACCENT adds a colored marker.";
+            case "chatAccentBar" -> "Add a compact accent marker before every incoming message.";
+            case "mentionSound" -> "Play a quiet sound when your Minecraft name is mentioned.";
+            case "keywordSound" -> "Play a quiet sound for configured highlight keywords.";
+            case "duplicateGrouping" -> "Treat repeated messages as one compact chat entry.";
+            case "lineFontScale" -> "Scale scoreboard line text from 0.6 to 2.0.";
+            case "lineAnimation" -> "Pulse the configured line color smoothly.";
+            case "lineAnimationSpeed" -> "Animation speed from 0.1 to 4.0.";
+            case "performanceHud" -> "Show FPS, ping and a local TPS estimate in the HUD.";
+            case "performanceShowFps", "performanceShowPing", "performanceShowTps" -> "Choose the performance values shown in the HUD.";
+            case "performanceHudScale" -> "Scale the performance widget from 0.5 to 3.0.";
+            case "performanceHudBackground" -> "Draw a subtle background behind the performance widget.";
             case "applyInScoreboard" -> "Customize your name inside sidebar lines.";
             default -> key.toLowerCase(Locale.ROOT).endsWith("hex") ? "Choose a color or enter #RRGGBB."
                     : "Changes take effect when you save.";

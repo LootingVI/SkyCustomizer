@@ -153,13 +153,13 @@ public final class ScoreboardCustomizer {
         Font font = Minecraft.getInstance().font;
         int width = snapshot.showTitle() ? font.width(snapshot.title()) : 0;
         for (SidebarLine line : snapshot.lines()) {
-            int lineWidth = font.width(line.name());
-            if (hasScore(snapshot, line)) lineWidth += SCORE_GAP + font.width(line.score());
+            int lineWidth = scaledWidth(font.width(line.name()), style.lineFontScale);
+            if (hasScore(snapshot, line)) lineWidth += SCORE_GAP + scaledWidth(font.width(line.score()), style.lineFontScale);
             width = Math.max(width, lineWidth);
         }
         int padding = padding(style);
         int count = snapshot.lines().size();
-        int bodyHeight = count == 0 ? 0 : TEXT_HEIGHT * count + lineSpacing(style) * (count - 1);
+        int bodyHeight = count == 0 ? 0 : lineHeight(style) * count + lineSpacing(style) * (count - 1);
         int height = padding * 2 + bodyHeight + (snapshot.showTitle() ? TEXT_HEIGHT + titleGap(snapshot, style) : 0);
         return new SidebarSize(Math.max(42, width + padding * 2), height);
     }
@@ -198,11 +198,14 @@ public final class ScoreboardCustomizer {
                 y += gap;
             }
             for (SidebarLine line : snapshot.lines()) {
-                graphics.text(font, line.name(), padding, y, -1, false);
+                int lineColor = lineColor(style, line.id());
+                drawScaledText(graphics, font, line.name(), padding, y, style.lineFontScale, lineColor);
                 if (hasScore(snapshot, line)) {
-                    graphics.text(font, line.score(), size.width() - padding - font.width(line.score()), y, -1, false);
+                    int scoreWidth = scaledWidth(font.width(line.score()), style.lineFontScale);
+                    drawScaledText(graphics, font, line.score(), size.width() - padding - scoreWidth, y,
+                            style.lineFontScale, scoreColor(style, line.id()));
                 }
-                y += TEXT_HEIGHT + lineSpacing(style);
+                y += lineHeight(style) + lineSpacing(style);
             }
         } finally {
             graphics.pose().popMatrix();
@@ -259,6 +262,17 @@ public final class ScoreboardCustomizer {
         boolean hidden = name == null || style.hiddenLineIds.contains(id);
         if (hidden && !includeHidden) return;
         if (style.lineOverrides.containsKey(id)) name = legacyComponent(style.lineOverrides.get(id));
+        if (name != null && style.lineIcons != null && !style.lineIcons.isEmpty()) {
+            String plain = name.getString();
+            for (var entry : style.lineIcons.entrySet()) {
+                if (entry.getKey() != null && !entry.getKey().isBlank() && entry.getValue() != null
+                        && !entry.getValue().isBlank() && plain.toLowerCase(java.util.Locale.ROOT)
+                        .contains(entry.getKey().toLowerCase(java.util.Locale.ROOT))) {
+                    name = Component.literal(entry.getValue() + " ").append(name);
+                    break;
+                }
+            }
+        }
         lines.add(new SidebarLine(name == null ? source : name, score, id, source, hidden));
     }
 
@@ -281,6 +295,49 @@ public final class ScoreboardCustomizer {
 
     private static int lineSpacing(SkyCustomizerConfig.ScoreboardConfig style) {
         return clamp(style.lineSpacing, 0, 5);
+    }
+
+    public static int lineHeight(SkyCustomizerConfig.ScoreboardConfig style) {
+        return Math.max(6, scaledWidth(TEXT_HEIGHT, style.lineFontScale));
+    }
+
+    private static int scaledWidth(int width, float scale) {
+        float safeScale = Float.isFinite(scale) ? Math.clamp(scale, 0.6f, 2.0f) : 1.0f;
+        return Math.max(1, Math.round(width * safeScale));
+    }
+
+    private static void drawScaledText(GuiGraphicsExtractor graphics, Font font, Component text,
+                                       int x, int y, float scale, int color) {
+        float safeScale = Float.isFinite(scale) ? Math.clamp(scale, 0.6f, 2.0f) : 1.0f;
+        graphics.pose().pushMatrix();
+        try {
+            graphics.pose().translate(x, y);
+            graphics.pose().scale(safeScale, safeScale);
+            graphics.text(font, text, 0, 0, color, false);
+        } finally {
+            graphics.pose().popMatrix();
+        }
+    }
+
+    private static int lineColor(SkyCustomizerConfig.ScoreboardConfig style, String id) {
+        return configuredColor(style.lineColorHex, style, id);
+    }
+
+    private static int scoreColor(SkyCustomizerConfig.ScoreboardConfig style, String id) {
+        return configuredColor(style.scoreColorHex, style, id);
+    }
+
+    private static int configuredColor(String hex, SkyCustomizerConfig.ScoreboardConfig style, String id) {
+        if (hex == null || hex.isBlank()) return -1;
+        int rgb = ColorUtil.fromHex(hex) & 0xFFFFFF;
+        if (!style.lineAnimation) return 0xFF000000 | rgb;
+        double wave = Math.sin(System.nanoTime() / 1_000_000_000.0 * Math.clamp(style.lineAnimationSpeed, 0.1f, 4.0f)
+                * Math.PI * 2 + Math.floorMod(id.hashCode(), 13));
+        float factor = (float) (0.72 + (wave + 1) * 0.14);
+        int r = Math.clamp(Math.round(((rgb >>> 16) & 255) * factor), 0, 255);
+        int g = Math.clamp(Math.round(((rgb >>> 8) & 255) * factor), 0, 255);
+        int b = Math.clamp(Math.round((rgb & 255) * factor), 0, 255);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     private static int titleGap(SidebarSnapshot snapshot, SkyCustomizerConfig.ScoreboardConfig style) {

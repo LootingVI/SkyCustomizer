@@ -45,6 +45,12 @@ public abstract class MixinLivingEntityRenderer {
             return;
         }
         if (n.hideNametagScores) state.scoreText = null;
+        if (n.nametagDistanceFade && state.distanceToCameraSq > n.nametagFadeStart * n.nametagFadeStart) {
+            float maxDistance = Math.max(n.nametagFadeStart + 1, distance);
+            float currentDistance = (float) Math.sqrt(state.distanceToCameraSq);
+            float fade = (currentDistance - n.nametagFadeStart) / (maxDistance - n.nametagFadeStart);
+            state.nameTag = NameCustomizer.fadeNametag(state.nameTag, fade);
+        }
         if (state.nameTagAttachment != null && Float.isFinite(n.nametagOffsetY) && n.nametagOffsetY != 0) {
             state.nameTagAttachment = state.nameTagAttachment.add(0, Math.clamp(n.nametagOffsetY, -1, 2), 0);
         }

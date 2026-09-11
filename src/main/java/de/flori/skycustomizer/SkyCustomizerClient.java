@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import de.flori.skycustomizer.config.SkyCustomizerConfig;
 import de.flori.skycustomizer.config.SkyCustomizerConfigScreen;
+import de.flori.skycustomizer.features.visuals.PerformanceHud;
 import de.flori.skycustomizer.util.ItemIdentity;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -54,6 +55,7 @@ public class SkyCustomizerClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            PerformanceHud.tick();
             if (openConfigKey != null && openConfigKey.consumeClick() && client.screen == null) {
                 openConfigScreen(null);
             }
