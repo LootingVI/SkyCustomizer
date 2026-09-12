@@ -28,20 +28,27 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
             ScoreboardStudioSmoke.prepare();
             c.items.heldItemLabels.put("uuid:preview","Hyperion");c.items.heldItemNames.put("uuid:preview","&#E2944E&lEmber Blade");
             c.items.heldItemLore.put("uuid:preview","&7Forged for exploration\\n&#55FFFFA little more personal.");
+            c.items.tooltipCanvasEnabled=true;
+            c.visuals.performanceHud=true;
+            c.visuals.actionbarComposerEnabled=true;
             screens=List.of(()->new SkyCustomizerConfigScreen(null),()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.ITEMS),
                     ()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.NAME),
                     ()->new LoreEditorScreen(null,c.items.heldItemLore.get("uuid:preview"),"&6Ember Blade",v->{}),
+                    ()->new TooltipCanvasScreen(null,c.items,v->{}),
                     ()->new NametagRulesScreen(null,List.of(new SkyCustomizerConfig.NametagRule()),v->{}),
                     ()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.SCOREBOARD),()->new ColorPickerScreen(null,"#E2944E",v->{}),
                     ()->new PaletteScreen(null,"#E2944E",v->{}),()->new WorkbenchScreen(null),
                     ()->workbench(1),()->workbench(2),()->workbench(3),
                     ()->new LevelColorEditorScreen(null),()->ScoreboardStudioSmoke.screen(mc,false,0),
+                    ()->hudEditor(),
                     ()->compact(mc,()->new NametagRulesScreen(null,List.of(new SkyCustomizerConfig.NametagRule()),v->{})),
                     ()->compact(mc,()->new PaletteScreen(null,"#E2944E",v->{})),
                     ()->compact(mc,()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.ITEMS)),
                     ()->ScoreboardStudioSmoke.screen(mc,false,2),()->ScoreboardStudioSmoke.screen(mc,false,1),
                     ()->ScoreboardStudioSmoke.screen(mc,true,0),()->ScoreboardStudioSmoke.screen(mc,true,2),
-                    ()->ScoreboardStudioSmoke.screen(mc,true,0));
+                    ()->ScoreboardStudioSmoke.screen(mc,true,0),
+                    ()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD),
+                    ()->{mc.options.guiScale().set(2);mc.resizeGui();return new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD);});
             c.ui.favorites.add("NAME|Custom name");
             c.savePreset("smoke-reference");
             c.scoreboard.titleColorHex="#E2944E";
@@ -49,10 +56,10 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
         }
         if(capturing)return;
         if(stage==2&&ticks==10)checkFeatureHistory(mc);
-        if(stage==13&&ticks==5)ScoreboardStudioSmoke.drop((ScoreboardEditorScreen)mc.screen);
-        if(stage==13&&ticks==20)try { ScoreboardStudioSmoke.check((ScoreboardEditorScreen)mc.screen); }
+        if(stage==14&&ticks==5)ScoreboardStudioSmoke.drop((ScoreboardEditorScreen)mc.screen);
+        if(stage==14&&ticks==20)try { ScoreboardStudioSmoke.check((ScoreboardEditorScreen)mc.screen); }
         catch(Throwable error) { failed=true; error.printStackTrace(); }
-        if(stage==21&&ticks==5)try { ScoreboardStudioSmoke.inlineExample((ScoreboardEditorScreen)mc.screen); }
+        if(stage==22&&ticks==5)try { ScoreboardStudioSmoke.inlineExample((ScoreboardEditorScreen)mc.screen); }
         catch(Throwable error) { failed=true; error.printStackTrace(); }
         if(++ticks<35)return;
         capturing=true;int current=stage;
@@ -67,6 +74,15 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
         });
     }
     private static Screen compact(Minecraft mc,Supplier<Screen> screen){mc.options.guiScale().set(4);mc.resizeGui();return screen.get();}
+    private static Screen hudEditor(){
+        HudEditorScreen screen=new HudEditorScreen(null);
+        try{
+            var field=HudEditorScreen.class.getDeclaredField("selected");field.setAccessible(true);
+            Object performance=Arrays.stream(field.getType().getEnumConstants()).filter(value->value.toString().equals("PERFORMANCE")).findFirst().orElseThrow();
+            field.set(screen,performance);
+        }catch(Exception error){throw new IllegalStateException(error);}
+        return screen;
+    }
     private static Screen workbench(int page){
         WorkbenchScreen screen=new WorkbenchScreen(null);
         try{var field=WorkbenchScreen.class.getDeclaredField("page");field.setAccessible(true);field.setInt(screen,page);

@@ -283,7 +283,9 @@ public final class ScoreboardEditorScreen extends StudioScreen {
                 if (save()) { reloadPlacement = true; minecraft.setScreen(new HudEditorScreen(this)); }
             }});
         } else {
-            cy = caption(g, "YOUR BACKGROUND IMAGE", cy);
+            cy = caption(g, "IMAGE GALLERY", cy);
+            cy = drawGallery(g, cy, mx, my);
+            cy = caption(g, "IMPORT A NEW IMAGE", cy + 3);
             drawString(g, fit("PNG / JPEG · up to 12 MB", optionsW - 20), optionsX + 10, cy, C_TEXT_DIM); cy += 18;
             drawString(g, fit("Drop a file anywhere on this editor.", optionsW - 20), optionsX + 10, cy, C_TEXT_DIM); cy += 22;
             cy = rowButtons(g, cy, mx, my, new String[]{importing ? "Importing..." : "Choose image", "Remove"},
@@ -319,6 +321,41 @@ public final class ScoreboardEditorScreen extends StudioScreen {
         }
     }
     private int caption(GuiGraphicsExtractor g, String text, int cy) { drawString(g, fit(text, optionsW - 20), optionsX + 10, cy, C_GOLD); return cy + 20; }
+    private int drawGallery(GuiGraphicsExtractor g, int cy, int mx, int my) {
+        List<String> images = ScoreboardBackgrounds.gallery();
+        if (images.isEmpty()) {
+            drawString(g, "Import an image to start your gallery.", optionsX + 10, cy, C_TEXT_DIM);
+            return cy + 23;
+        }
+        int gap = 5;
+        int cellWidth = Math.max(56, (optionsW - 20 - gap) / 2);
+        int cellHeight = 58;
+        for (int index = 0; index < images.size(); index++) {
+            String image = images.get(index);
+            int column = index % 2;
+            int row = index / 2;
+            int bx = optionsX + 10 + column * (cellWidth + gap);
+            int by = cy + row * (cellHeight + gap);
+            boolean selectedImage = image.equals(staged.backgroundImage);
+            if (by + cellHeight >= top && by <= bottom) {
+                fillRoundRect(g, bx, by, cellWidth, cellHeight, 5, selectedImage ? C_ACTIVE : C_INPUT);
+                if (!ScoreboardBackgrounds.drawThumbnail(g, image, bx + 3, by + 3, cellWidth - 6, 35))
+                    drawCenteredString(g, "Loading...", bx + cellWidth / 2, by + 16, C_TEXT_DIM);
+                drawRoundBorder(g, bx, by, cellWidth, cellHeight, 5, selectedImage ? C_GOLD : C_BORDER);
+                String label = selectedImage ? "ACTIVE" : "IMAGE " + (index + 1);
+                drawCenteredString(g, label, bx + cellWidth / 2, by + 43, selectedImage ? C_GOLD : C_TEXT_DIM);
+                actions.add(new Action(bx, by, cellWidth, cellHeight, () -> {
+                    staged.backgroundImage = image;
+                    staged.backgroundImageEnabled = true;
+                    staged.backgroundEnabled = true;
+                    ScoreboardBackgrounds.retry(image);
+                    status = "Gallery image selected. Save to apply it.";
+                    invalidate();
+                }));
+            }
+        }
+        return cy + ((images.size() + 1) / 2) * (cellHeight + gap);
+    }
     private int rowButtons(GuiGraphicsExtractor g, int cy, int mx, int my, String[] labels, Runnable[] runs) {
         int bw = (optionsW - 20 - (labels.length - 1) * 5) / labels.length;
         for (int i = 0; i < labels.length; i++) buttonAt(g, fit(labels[i], bw - 10), optionsX + 10 + i * (bw + 5), cy, bw, mx, my, false, true, runs[i]);

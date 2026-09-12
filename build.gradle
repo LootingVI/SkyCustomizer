@@ -67,6 +67,15 @@ tasks.named('check') {
     dependsOn 'verifyHudLayout', 'verifySourceUsage'
 }
 
+tasks.register('verifyDiscordRpcLive', JavaExec) {
+    group = 'verification'
+    description = 'Explicit local Discord test: briefly publishes a neutral test activity, verifies the acknowledgement and clears it.'
+    dependsOn hudCheckClasses
+    classpath = sourceSets.hudCheck.runtimeClasspath
+    mainClass = 'de.flori.skycustomizer.discord.DiscordRpcChecks'
+    args '--live'
+}
+
 tasks.register('verifySourceUsage', JavaExec) {
     group = 'verification'
     description = 'Checks production Java members for missing source references.'

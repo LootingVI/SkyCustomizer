@@ -3,6 +3,7 @@ package de.flori.skycustomizer.mixin;
 import de.flori.skycustomizer.features.visuals.VisualsCustomizer;
 import de.flori.skycustomizer.features.visuals.HudCustomizer;
 import de.flori.skycustomizer.features.visuals.PerformanceHud;
+import de.flori.skycustomizer.features.visuals.ActionbarComposer;
 import de.flori.skycustomizer.config.HudEditorScreen;
 import de.flori.skycustomizer.config.SkyCustomizerConfig;
 import de.flori.skycustomizer.util.HudLayout;
@@ -34,8 +35,13 @@ public class MixinGui {
 
     @Inject(method = "extractVignette", at = @At("HEAD"), cancellable = true)
     private void skycustomizer$hideVignette(GuiGraphicsExtractor graphics, net.minecraft.world.entity.Entity camera, CallbackInfo ci) {
-        PerformanceHud.draw(graphics);
         if (VisualsCustomizer.shouldHideVignette()) ci.cancel();
+    }
+
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void skycustomizer$drawPerformanceHud(GuiGraphicsExtractor graphics, DeltaTracker delta, CallbackInfo ci) {
+        PerformanceHud.draw(graphics);
+        ActionbarComposer.draw(graphics);
     }
 
     @ModifyVariable(method = "setTitle", at = @At("HEAD"), argsOnly = true)

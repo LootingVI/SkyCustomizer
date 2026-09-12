@@ -2,6 +2,7 @@ package de.flori.skycustomizer.config;
 
 import com.google.gson.Gson;
 import de.flori.skycustomizer.features.ChatCustomizer;
+import de.flori.skycustomizer.features.DiscordRichPresence;
 import de.flori.skycustomizer.util.ColorUtil;
 import de.flori.skycustomizer.util.ItemIdentity;
 import de.flori.skycustomizer.util.RegexCache;
@@ -25,7 +26,7 @@ import static de.flori.skycustomizer.render.ModernRenderHelper.*;
 public final class FeatureEditorScreen extends StudioScreen {
     public enum Page {
         ITEMS("Item Editor"), NAME("Nametag Editor"), ARMOR("Armor Editor"),
-        CHAT("Chat Editor"), VISUALS("HUD & Text"), SCOREBOARD("Scoreboard Lines");
+        CHAT("Chat Editor"), VISUALS("HUD & Text"), DISCORD("Discord Rich Presence"), SCOREBOARD("Scoreboard Lines");
         final String title;
         Page(String title) { this.title = title; }
     }
@@ -57,7 +58,7 @@ public final class FeatureEditorScreen extends StudioScreen {
         config = SkyCustomizerConfig.get();
         Object original = switch (page) {
             case ITEMS -> config.items; case NAME -> config.name; case ARMOR -> config.armor;
-            case CHAT -> config.chat; case VISUALS -> config.visuals; case SCOREBOARD -> config.scoreboard;
+            case CHAT -> config.chat; case VISUALS -> config.visuals; case DISCORD -> config.discord; case SCOREBOARD -> config.scoreboard;
         };
         draft = GSON.fromJson(GSON.toJson(original), original.getClass());
     }
@@ -143,6 +144,14 @@ public final class FeatureEditorScreen extends StudioScreen {
                 fields("enabled,namesEnabled,loreEnabled,showOriginalName,hideLore,rarityColorsEnabled,hideGlint,forceGlint,itemIconsEnabled,itemIcon,favoriteMarkerEnabled,favoriteMarker");
                 section("TOOLTIP STYLE", "Add a polished rarity accent to supported item tooltips.");
                 fields("tooltipStyleEnabled,tooltipAccentHex");
+                section("TOOLTIP CANVAS", "Move, pin and scale item tooltips without changing their contents.");
+                fields("tooltipCanvasEnabled,tooltipCanvasPinned,tooltipCanvasOffsetX,tooltipCanvasOffsetY,tooltipCanvasPinnedX,tooltipCanvasPinnedY,tooltipCanvasScale");
+                rows.add(new ActionRow("Tooltip Canvas Editor", "Drag a live-size tooltip, use the wheel to scale it, then apply.", () -> {
+                    for (Group group : groups) if (!group.flush()) { status = "Check rule keys first"; return; }
+                    minecraft.setScreen(new TooltipCanvasScreen(this, (SkyCustomizerConfig.ItemConfig) draft, value -> {
+                        draft = value; rebuildForm(); changed(); checkpoint();
+                    }));
+                }));
                 group("Rarity colors", "Color of item names, detected from the server rarity line.", "rarityColors", false, true, false);
                 group("Favorite item types", "Minecraft item IDs that receive the favorite marker, for example minecraft:diamond_sword.", "favoriteItemTypes", false, false, true);
                 group("Item type names", "Minecraft item ID → custom name. This runs before name pattern rules.", "itemTypeNames", false, false, false);
@@ -186,6 +195,8 @@ public final class FeatureEditorScreen extends StudioScreen {
             case VISUALS -> {
                 section("HUD & ACTIONBAR", "Use the HUD Editor to position elements by dragging.");
                 fields("enabled,customHud,hudScale,hudOffsetX,hudOffsetY,actionbarCustom,actionbarHide");
+                section("ACTIONBAR COMPOSER", "Turn health, defense and mana into independently styled compact cards.");
+                fields("actionbarComposerEnabled,actionbarComposerShowHealth,actionbarComposerShowDefense,actionbarComposerShowMana,actionbarComposerBackground,actionbarComposerBackgroundOpacity,actionbarComposerGap");
                 section("TITLES", "Colors and visibility for title and subtitle messages.");
                 fields("customTitles,hideTitles,titleHex,subtitleHex,titleChroma");
                 section("BOSSBAR", "Visibility of server boss bars.");
@@ -194,6 +205,26 @@ public final class FeatureEditorScreen extends StudioScreen {
                 fields("vignetteHide");
                 section("PERFORMANCE WIDGET", "A compact HUD panel for FPS, ping and a local TPS estimate.");
                 fields("performanceHud,performanceShowFps,performanceShowPing,performanceShowTps,performanceHudScale,performanceHudOffsetX,performanceHudOffsetY,performanceHudBackground,performanceHudBackgroundOpacity,performanceHudColorHex");
+                rows.add(new ActionRow("Discord Rich Presence", "Configure your local Discord status, text templates and art assets.", () ->
+                        minecraft.setScreen(new FeatureEditorScreen(this, Page.DISCORD))));
+            }
+            case DISCORD -> {
+                section("CONNECTION", "Open Discord desktop, enable Rich Presence and save. The shared Application ID is already included.");
+                rows.add(new StatusRow());
+                fields("enabled,showInMenus");
+                rows.add(new ActionRow("Save & Reconnect", "Save these settings and restart the local Discord connection.", () -> {
+                    save();
+                    if (!dirty) { DiscordRichPresence.refresh(); status = "Discord reconnect queued"; }
+                }));
+                section("ADVANCED CONNECTION", "The Application ID only needs changing when you use your own Discord application.");
+                fields("applicationId,reconnectSeconds,updateSeconds,showTimestamp");
+                section("PRIVACY", "Choose which live values template variables may reveal in your Discord activity.");
+                fields("sharePlayer,shareArea,shareProfile,shareServer");
+                section("PRESENCE TEXT", "Variables: {player}, {area}, {profile}, {server}, {game}. Leave a field empty to hide it.");
+                fields("details,state");
+                section("ART ASSETS", "Upload keys in Discord Developer Portal → Rich Presence → Art Assets, then use their lowercase keys here.");
+                fields("largeImageKey,largeImageText,smallImageKey,smallImageText");
+                section("DISCORD VISIBILITY", "If activity is confirmed but hidden, enable activity sharing in Discord Settings > Activity Privacy.");
             }
             case SCOREBOARD -> {
                 rows.add(new ActionRow("Visual Line Editor", "Select sidebar lines in a live preview to edit or hide them.", () -> {
@@ -232,6 +263,8 @@ public final class FeatureEditorScreen extends StudioScreen {
                                 if (value == null) return "Use a six-digit hex color.";
                             } else if (field.getType() == int.class) {
                                 value = Integer.parseInt(text.trim());
+                                if (page == Page.DISCORD && ((int) value < (key.equals("reconnectSeconds") ? 3 : 2) || (int) value > 120))
+                                    return key.equals("reconnectSeconds") ? "Use 3 to 120 seconds." : "Use 2 to 120 seconds.";
                             } else if (field.getType() == float.class) {
                                 float number = Float.parseFloat(text.trim());
                                 if (!Float.isFinite(number)) return "Enter a finite number.";
@@ -241,6 +274,11 @@ public final class FeatureEditorScreen extends StudioScreen {
                                 value = number;
                             } else if (key.equals("timestampFormat")) {
                                 java.time.format.DateTimeFormatter.ofPattern(text);
+                            } else if (page == Page.DISCORD && key.equals("applicationId")) {
+                                if (!text.isBlank() && !DiscordRichPresence.validId(text.trim())) return "Enter a valid numeric Application ID or leave empty for SkyCustomizer.";
+                                value = text.isBlank() ? new SkyCustomizerConfig.DiscordConfig().applicationId : text.trim();
+                            } else if (page == Page.DISCORD && text.codePointCount(0, text.length()) > 128) {
+                                return "Use at most 128 characters.";
                             }
                             field.set(draft, value);
                             return null;
@@ -264,6 +302,11 @@ public final class FeatureEditorScreen extends StudioScreen {
             case "itemIconsEnabled" -> "Add the selected symbol before customized item names.";
             case "favoriteMarkerEnabled" -> "Show a marker for item types in your favorites list.";
             case "tooltipStyleEnabled" -> "Add rarity-colored header and footer accents to tooltip text.";
+            case "tooltipCanvasEnabled" -> "Enable your local tooltip position, pinned anchor and scale settings.";
+            case "tooltipCanvasPinned" -> "Keep the tooltip at a fixed screen position instead of following the cursor.";
+            case "tooltipCanvasOffsetX", "tooltipCanvasOffsetY" -> "Move cursor-following tooltips in GUI pixels.";
+            case "tooltipCanvasPinnedX", "tooltipCanvasPinnedY" -> "Fixed tooltip position in GUI pixels when pinned.";
+            case "tooltipCanvasScale" -> "Scale item tooltips from 0.5 to 2.0.";
             case "nametagMaxDistance" -> "Maximum player-tag distance in blocks: 8–64.";
             case "nametagOffsetY" -> "Vertical offset in blocks: -1 to 2.";
             case "nametagPill" -> "Frame player tags with a colored pill-shaped text treatment.";
@@ -286,6 +329,23 @@ public final class FeatureEditorScreen extends StudioScreen {
             case "performanceShowFps", "performanceShowPing", "performanceShowTps" -> "Choose the performance values shown in the HUD.";
             case "performanceHudScale" -> "Scale the performance widget from 0.5 to 3.0.";
             case "performanceHudBackground" -> "Draw a subtle background behind the performance widget.";
+            case "actionbarComposerEnabled" -> "Replace the standard actionbar with separate stat cards when values are available.";
+            case "actionbarComposerShowHealth", "actionbarComposerShowDefense", "actionbarComposerShowMana" -> "Choose which matching actionbar values become cards.";
+            case "actionbarComposerBackground" -> "Draw a card background behind each selected actionbar value.";
+            case "actionbarComposerBackgroundOpacity" -> "Card background opacity from 0 to 255.";
+            case "actionbarComposerGap" -> "Space between actionbar cards in pixels.";
+            case "applicationId" -> "Numeric Discord Application ID. This is not a bot token or secret.";
+            case "reconnectSeconds" -> "Seconds between connection attempts while Discord is closed: 3–120.";
+            case "updateSeconds" -> "Minimum seconds between Rich Presence updates: 2–120.";
+            case "showInMenus" -> "Also publish while no world is open. Enable this to test in the main menu.";
+            case "showTimestamp" -> "Show time elapsed since this Minecraft session began.";
+            case "sharePlayer" -> "Allow {player} to resolve to your Minecraft username.";
+            case "shareArea" -> "Allow {area} to resolve from your SkyBlock scoreboard.";
+            case "shareProfile" -> "Allow {profile} to resolve to the active SkyCustomizer profile.";
+            case "shareServer" -> "Allow {server} to resolve to the current server address.";
+            case "details", "state" -> "Normal text plus {player}, {area}, {profile}, {server} and {game}.";
+            case "largeImageKey", "smallImageKey" -> "Discord Rich Presence art-asset key, normally lowercase.";
+            case "largeImageText", "smallImageText" -> "Tooltip text shown when Discord users hover over this image.";
             case "applyInScoreboard" -> "Customize your name inside sidebar lines.";
             default -> key.toLowerCase(Locale.ROOT).endsWith("hex") ? "Choose a color or enter #RRGGBB."
                     : "Changes take effect when you save.";
@@ -373,7 +433,9 @@ public final class FeatureEditorScreen extends StudioScreen {
                 preview = namePreview(n, username);
             } else preview = Component.literal(page == Page.ARMOR ? "Pick colors for each armor piece."
                     : page == Page.SCOREBOARD ? "Edit the content rules for your sidebar."
-                    : page == Page.CHAT ? "Filters affect newly received messages." : "HUD, title and bossbar appearance.").withColor(0xD1BDA8);
+                    : page == Page.CHAT ? "Filters affect newly received messages."
+                    : page == Page.DISCORD ? discordPreview((SkyCustomizerConfig.DiscordConfig) draft)
+                    : "HUD, title and bossbar appearance.").withColor(0xD1BDA8);
         }
         if(previewW==0){g.enableScissor(px + 20, py + 78, px + pw - 20, py + 95);
         g.text(minecraft.font, preview, px + 21, py + 81, -1, false);g.disableScissor();}
@@ -386,7 +448,8 @@ public final class FeatureEditorScreen extends StudioScreen {
         drawString(g,"SAVED",x+8,y+25,C_TEXT_DIM);
         Component saved=page==Page.NAME ? namePreview(config.name,minecraft.getUser().getName()) : page==Page.ITEMS
                 ? TextUtil.parseLegacyFormatting(config.items.heldItemNames.getOrDefault(selectedItem,
-                    ((SkyCustomizerConfig.ItemConfig)draft).heldItemLabels.getOrDefault(selectedItem,"Select an item")),Style.EMPTY) : Component.literal("Current settings");
+                    ((SkyCustomizerConfig.ItemConfig)draft).heldItemLabels.getOrDefault(selectedItem,"Select an item")),Style.EMPTY)
+                : page==Page.DISCORD ? Component.literal(discordPreview(config.discord)) : Component.literal("Current settings");
         g.enableScissor(x,y+39,x+w,bottom());
         g.text(minecraft.font,saved,x+8,y+41,-1,false);
         drawString(g,"DRAFT",x+8,y+73,C_GOLD);
@@ -410,6 +473,16 @@ public final class FeatureEditorScreen extends StudioScreen {
             var a=(SkyCustomizerConfig.ArmorConfig)draft;
             String[] colors={a.helmetHex,a.chestplateHex,a.leggingsHex,a.bootsHex};
             for(int i=0;i<4;i++){fillRoundRect(g,x+8+i*36,y+116,28,32,6,ColorUtil.fromHex(a.perPiece?colors[i]:a.globalHex));}
+        } else if(page==Page.DISCORD){
+            var d=(SkyCustomizerConfig.DiscordConfig)draft;
+            int cardY=y+113;
+            fillRoundRect(g,x+8,cardY,w-16,66,6,C_SURFACE);
+            drawRoundBorder(g,x+8,cardY,w-16,66,6,C_BORDER);
+            fillRoundRect(g,x+16,cardY+10,30,30,5,C_GOLD_DARK);
+            drawCenteredString(g,"D",x+31,cardY+20,C_TEXT);
+            drawString(g,fit(discordPart(d.details),w-64),x+54,cardY+11,C_TEXT);
+            drawString(g,fit(discordPart(d.state),w-64),x+54,cardY+25,C_TEXT_DIM);
+            drawString(g,d.enabled?"LOCAL RPC · ON":"LOCAL RPC · OFF",x+16,cardY+49,d.enabled?C_GOLD:C_TEXT_DIM);
         }
         g.disableScissor();
         drawString(g,"Ctrl+Z / Ctrl+Y  Undo / Redo",x+8,py+ph-24,C_TEXT_DIM);
@@ -427,6 +500,17 @@ public final class FeatureEditorScreen extends StudioScreen {
                 .withStyle(style.withColor(n.chroma ? ColorUtil.chromaChar(i, n.chromaSpeed) & 0xFFFFFF
                         : java.awt.Color.HSBtoRGB((float) i / Math.max(1, plain.length()), 1, 1) & 0xFFFFFF)));
         return out;
+    }
+
+    private static String discordPreview(SkyCustomizerConfig.DiscordConfig settings) {
+        String details=discordPart(settings.details),state=discordPart(settings.state);
+        if(details.isEmpty()) details="SkyCustomizer";
+        return state.isEmpty()?details:details+"  •  "+state;
+    }
+    private static String discordPart(String template) {
+        String text=Objects.toString(template,"");
+        return text.replace("{player}","megaPIZZA").replace("{area}","Mining District")
+                .replace("{profile}","default").replace("{server}","mc.hypixel.net").replace("{game}","Minecraft");
     }
 
     private void captureHeld() {
@@ -471,6 +555,7 @@ public final class FeatureEditorScreen extends StudioScreen {
             case ARMOR -> config.armor = (SkyCustomizerConfig.ArmorConfig) saved;
             case CHAT -> config.chat = (SkyCustomizerConfig.ChatConfig) saved;
             case VISUALS -> config.visuals = (SkyCustomizerConfig.VisualsConfig) saved;
+            case DISCORD -> config.discord = (SkyCustomizerConfig.DiscordConfig) saved;
             case SCOREBOARD -> config.scoreboard = (SkyCustomizerConfig.ScoreboardConfig) saved;
         }
         config.save(); dirty = false; status = "Changes saved";
@@ -546,6 +631,18 @@ public final class FeatureEditorScreen extends StudioScreen {
         @Override void draw(GuiGraphicsExtractor g, int mx, int my, float delta) {
             drawString(g, fit(title, rowW()), px + 17, y + 3, C_GOLD);
             drawString(g, fit(hint, rowW() - 6), px + 17, y + 15, C_TEXT_DIM);
+        }
+    }
+    private final class StatusRow extends Row {
+        StatusRow() { super("Connection status", "The local Discord IPC state updates automatically."); }
+        @Override int height() { return 63; }
+        @Override void draw(GuiGraphicsExtractor g, int mx, int my, float delta) {
+            card(g);
+            drawString(g, title, px + 23, y + 9, C_TEXT);
+            String value = DiscordRichPresence.status();
+            String first = fit(value, rowW() - 24);
+            drawString(g, first, px + 23, y + 27, value.startsWith("Activity confirmed") ? C_GOLD : C_TEXT_DIM);
+            if (first.length() < value.length()) drawString(g, fit(value.substring(first.length()).trim(), rowW() - 24), px + 23, y + 41, C_TEXT_DIM);
         }
     }
     private final class ToggleRow extends Row {

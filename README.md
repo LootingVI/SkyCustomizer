@@ -47,7 +47,22 @@ Open **Scoreboard → Scoreboard Editor**.
 
 ### Visuals
 
-The active visual settings are custom title/subtitle colors, title chroma, title visibility, bossbar visibility, actionbar visibility and hiding the Minecraft vignette. HUD placement is handled by the HUD editor.
+The active visual settings are custom title/subtitle colors, title chroma, title visibility, bossbar visibility, actionbar visibility and hiding the Minecraft vignette. The HUD editor positions the scoreboard, actionbar and FPS/ping/TPS performance widget. The Actionbar Composer can split matching health, defense and mana values into compact cards. The Item Editor includes Tooltip Canvas for pinning, moving and scaling tooltips.
+
+### Discord Rich Presence
+
+Open **General → Discord Rich Presence** to configure a local Discord activity. It is disabled by default and uses Discord IPC, so no bot token, web service or SkyCustomizer account is involved.
+
+1. Open the Discord desktop app. SkyCustomizer already includes its shared Application ID; users do not need to create an application.
+2. Turn on **Enabled**, then click **Save & Reconnect**. Enable **Show in menus** to test without entering a world.
+3. Customize Details, State, images, timestamp, reconnect/update intervals and privacy switches. Clear an image key to hide that image.
+4. As the Discord application owner, upload the included `docs/discord/skycustomizer_cover.png` once under **Rich Presence → Art Assets** with the key `skycustomizer_cover`. Other users do not need to upload anything.
+
+Text supports `{player}`, `{area}`, `{profile}`, `{server}` and `{game}`. `{profile}` is the selected SkyCustomizer profile. Area detection reads the original server scoreboard, independently of local line replacements. Privacy switches decide which live values may be resolved; server sharing is off by default.
+
+**Connection status** reports `Activity confirmed by Discord` only after Discord acknowledges the activity. If it is confirmed but not visible, check activity sharing in Discord's **Activity Privacy** settings. `Waiting for a world` means **Show in menus** is off. If Discord is unavailable or restarts, the client retries automatically; **Save & Reconnect** also restarts the connection manually. The connection runs in background threads, not on Minecraft's rendering thread.
+
+![Discord Rich Presence settings](docs/screenshots/discord-rich-presence.png)
 
 ### Profiles and Design Studio
 
@@ -71,5 +86,7 @@ Requires Java 25.
 `build` runs the headless behavior checks and the source-usage check. The latter fails if a production method or field loses all references.
 
 `runUiSmoke` starts an isolated development client in `build/ui-smoke-run`, tests the real menu hooks and exits automatically. Its test classes and test mod metadata are in `src/uiSmoke`; they are not packaged in the release JAR.
+
+`verifyDiscordRpcLive` is an optional test against the locally running Discord desktop app. It briefly publishes a neutral connection-test activity using the shared Application ID, checks Discord's acknowledgement and clears it. Normal builds only run simulated IPC checks and never publish a Discord activity.
 
 The release output is `build/libs/skycustomizer-1.0.0.jar`.

@@ -7,6 +7,7 @@
     "FontAccessor",
     "MixinFrameTiming",
     "MixinChatComponent",
+    "MixinGuiGraphicsExtractor",
     "MixinPlayerTabOverlay",
     "MixinItemStackTooltip",
     "MixinLivingEntityRenderer",

@@ -5,12 +5,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import de.flori.skycustomizer.config.SkyCustomizerConfig;
 import de.flori.skycustomizer.config.SkyCustomizerConfigScreen;
 import de.flori.skycustomizer.features.visuals.PerformanceHud;
+import de.flori.skycustomizer.features.DiscordRichPresence;
 import de.flori.skycustomizer.util.ItemIdentity;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -38,6 +40,7 @@ public class SkyCustomizerClient implements ClientModInitializer {
 
         registerKeybind();
         registerCommands(cfg);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> DiscordRichPresence.shutdown());
 
         log("Initialized - Fabric 26.1.2");
     }
@@ -56,6 +59,7 @@ public class SkyCustomizerClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             PerformanceHud.tick();
+            DiscordRichPresence.tick();
             if (openConfigKey != null && openConfigKey.consumeClick() && client.screen == null) {
                 openConfigScreen(null);
             }

@@ -1,6 +1,7 @@
 package de.flori.skycustomizer.features.visuals;
 
 import de.flori.skycustomizer.config.SkyCustomizerConfig;
+import de.flori.skycustomizer.config.HudEditorScreen;
 import de.flori.skycustomizer.util.ColorUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -32,6 +33,7 @@ public final class PerformanceHud {
         var settings = cfg.visuals;
         if (!cfg.enabled || !settings.enabled || !settings.performanceHud) return;
         Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.screen instanceof HudEditorScreen) return;
         if (minecraft.font == null) return;
         List<String> values = new ArrayList<>(3);
         if (settings.performanceShowFps) values.add("FPS " + minecraft.getFps());

@@ -51,7 +51,7 @@ public final class VisualsCustomizer {
 
     public static boolean shouldHideActionbar() {
         var c = SkyCustomizerConfig.get().visuals;
-        return enabled(c) && c.actionbarCustom && c.actionbarHide;
+        return enabled(c) && c.actionbarCustom && (c.actionbarHide || c.actionbarComposerEnabled);
     }
 
     public static boolean shouldHideVignette() {

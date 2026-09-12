@@ -18,9 +18,12 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public final class ScoreboardBackgrounds {
+    private static final int CACHE_CAPACITY = 24;
     private static final ExecutorService IO = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(16), task -> { var thread = new Thread(task, "SkyCustomizer images"); thread.setDaemon(true); return thread; });
+            new ArrayBlockingQueue<>(32), task -> { var thread = new Thread(task, "SkyCustomizer images"); thread.setDaemon(true); return thread; });
     private static final Map<String, Entry> CACHE = new LinkedHashMap<>(8, .75f, true);
+    private static volatile List<String> gallery = List.of();
+    private static volatile long galleryUpdatedAt;
     private static final class Entry {
         Identifier texture;
         int width, height;
@@ -36,6 +39,26 @@ public final class ScoreboardBackgrounds {
     private ScoreboardBackgrounds() {}
 
     public static Path directory() { return FabricLoader.getInstance().getConfigDir().resolve("skycustomizer/backgrounds"); }
+    public static List<String> gallery() {
+        long now = System.nanoTime();
+        if (now - galleryUpdatedAt < 1_000_000_000L) return gallery;
+        synchronized (ScoreboardBackgrounds.class) {
+            if (now - galleryUpdatedAt < 1_000_000_000L) return gallery;
+            try {
+                if (!Files.isDirectory(directory())) gallery = List.of();
+                else try (var files = Files.list(directory())) {
+                    gallery = files.filter(Files::isRegularFile)
+                            .sorted(Comparator.comparingLong(ScoreboardBackgrounds::modified).reversed())
+                            .map(path -> path.getFileName().toString())
+                            .filter(name -> name.matches("[a-f0-9]{64}\\.png"))
+                            .limit(CACHE_CAPACITY)
+                            .toList();
+                }
+            } catch (IOException ignored) { gallery = List.of(); }
+            galleryUpdatedAt = now;
+            return gallery;
+        }
+    }
     public static CompletableFuture<String> choose() {
         return CompletableFuture.supplyAsync(() -> {
             try (var stack = MemoryStack.stackPush()) {
@@ -67,7 +90,7 @@ public final class ScoreboardBackgrounds {
         if (existing != null) return existing;
         var entry = new Entry();
         CACHE.put(file, entry);
-        while (CACHE.size() > 8) {
+        while (CACHE.size() > CACHE_CAPACITY) {
             var iterator = CACHE.entrySet().iterator();
             Entry removed = iterator.next().getValue(); iterator.remove();
             if (removed.texture != null) Minecraft.getInstance().getTextureManager().release(removed.texture);
@@ -109,6 +132,22 @@ public final class ScoreboardBackgrounds {
             strip(g, entry, fit, 3, height - 1, width - 3, height, color);
         }
         return true;
+    }
+    public static boolean drawThumbnail(GuiGraphicsExtractor g, String file, int x, int y, int width, int height) {
+        Entry entry = entry(file);
+        if (entry.texture == null) return false;
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(x, y);
+            strip(g, entry, ScoreboardImageIO.fit(entry.width, entry.height, width, height, "COVER"), 0, 0, width, height, 0xFFFFFFFF);
+        } finally {
+            g.pose().popMatrix();
+        }
+        return true;
+    }
+    private static long modified(Path path) {
+        try { return Files.getLastModifiedTime(path).toMillis(); }
+        catch (IOException ignored) { return 0; }
     }
     private static void strip(GuiGraphicsExtractor g, Entry entry, ScoreboardImageIO.Fit fit,
                               int left, int top, int right, int bottom, int color) {

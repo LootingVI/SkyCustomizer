@@ -53,6 +53,8 @@ public final class HudLayoutTest {
         try { ScoreboardImageChecks.run(); } catch (Exception e) { throw new AssertionError(e); }
         try { de.flori.skycustomizer.config.StudioChecks.run(); }
         catch(Exception e){throw new AssertionError("Studio checks failed",e);}
+        try { de.flori.skycustomizer.discord.DiscordRpcChecks.run(); }
+        catch(Exception e){throw new AssertionError("Discord RPC checks failed",e);}
     }
 
     private static void near(float actual, float expected, String message) {

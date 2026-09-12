@@ -4,7 +4,9 @@ import de.flori.skycustomizer.features.ScoreboardCustomizer;
 import de.flori.skycustomizer.features.ScoreboardCustomizer.SidebarSize;
 import de.flori.skycustomizer.features.ScoreboardCustomizer.SidebarSnapshot;
 import de.flori.skycustomizer.features.visuals.HudCustomizer;
+import de.flori.skycustomizer.features.visuals.ActionbarComposer;
 import de.flori.skycustomizer.util.HudLayout;
+import de.flori.skycustomizer.util.ColorUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -21,7 +23,7 @@ public final class HudEditorScreen extends StudioScreen {
     private static final long REFRESH_NANOS = 250_000_000L;
     private static final int GRID_SIZE = 8;
 
-    private enum Target { SCOREBOARD, ACTIONBAR }
+    private enum Target { SCOREBOARD, ACTIONBAR, PERFORMANCE }
     private enum Drag { NONE, MOVE, RESIZE }
 
     private final Screen parent;
@@ -30,6 +32,9 @@ public final class HudEditorScreen extends StudioScreen {
     private float actionbarScale;
     private int actionbarOffsetX;
     private int actionbarOffsetY;
+    private float performanceScale;
+    private int performanceOffsetX;
+    private int performanceOffsetY;
     private Target selected = Target.SCOREBOARD;
     private Drag drag = Drag.NONE;
     private boolean grid = true;
@@ -42,6 +47,7 @@ public final class HudEditorScreen extends StudioScreen {
     private SidebarSize sidebarSize;
     private Component actionbarMessage = Component.empty();
     private int actionbarWidth = 1;
+    private int actionbarHeight = 9;
     private long refreshedAt;
 
     public HudEditorScreen(Screen parent) {
@@ -52,9 +58,12 @@ public final class HudEditorScreen extends StudioScreen {
         actionbarScale = config.visuals.hudScale;
         actionbarOffsetX = config.visuals.hudOffsetX;
         actionbarOffsetY = config.visuals.hudOffsetY;
+        performanceScale = config.visuals.performanceHudScale;
+        performanceOffsetX = config.visuals.performanceHudOffsetX;
+        performanceOffsetY = config.visuals.performanceHudOffsetY;
     }
 
-    @Override protected String[] historyFields() { return new String[]{"scoreboard","actionbarScale","actionbarOffsetX","actionbarOffsetY"}; }
+    @Override protected String[] historyFields() { return new String[]{"scoreboard","actionbarScale","actionbarOffsetX","actionbarOffsetY","performanceScale","performanceOffsetX","performanceOffsetY"}; }
     @Override protected void afterHistory() { dirty=true; refreshPreview(true); }
 
     @Override
@@ -69,7 +78,9 @@ public final class HudEditorScreen extends StudioScreen {
         snapshot = ScoreboardCustomizer.snapshot(scoreboard);
         sidebarSize = ScoreboardCustomizer.measure(snapshot, scoreboard);
         actionbarMessage = HudCustomizer.previewMessage();
-        actionbarWidth = Math.max(1, Minecraft.getInstance().font.width(actionbarMessage));
+        var actionbarLayout = ActionbarComposer.layout(actionbarMessage);
+        actionbarWidth = ActionbarComposer.enabled() ? actionbarLayout.width() : Math.max(1, Minecraft.getInstance().font.width(actionbarMessage));
+        actionbarHeight = ActionbarComposer.enabled() ? actionbarLayout.height() : 9;
         refreshedAt = now;
     }
 
@@ -84,11 +95,16 @@ public final class HudEditorScreen extends StudioScreen {
         ScoreboardCustomizer.draw(graphics, snapshot, scoreboard,
                 boardBounds.x(), boardBounds.y(), boardBounds.scale());
         HudLayout.Bounds barBounds = bounds(Target.ACTIONBAR);
-        HudCustomizer.drawPreview(graphics, actionbarMessage,
+        if (ActionbarComposer.enabled()) ActionbarComposer.drawPreview(graphics, actionbarMessage,
                 barBounds.x(), barBounds.y(), barBounds.scale());
+        else HudCustomizer.drawPreview(graphics, actionbarMessage,
+                barBounds.x(), barBounds.y(), barBounds.scale());
+        HudLayout.Bounds performanceBounds = bounds(Target.PERFORMANCE);
+        drawPerformancePreview(graphics, performanceBounds);
 
         drawOutline(graphics, Target.SCOREBOARD, boardBounds, mouseX, mouseY);
         drawOutline(graphics, Target.ACTIONBAR, barBounds, mouseX, mouseY);
+        drawOutline(graphics, Target.PERFORMANCE, performanceBounds, mouseX, mouseY);
         if (drag != Drag.NONE) drawGuides(graphics, bounds(selected));
         drawToolbar(graphics, mouseX, mouseY);
         drawFooter(graphics, mouseX, mouseY);
@@ -98,6 +114,25 @@ public final class HudEditorScreen extends StudioScreen {
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
 
         if (Minecraft.getInstance().level == null) extractPanorama(graphics, delta);
+    }
+
+    private void drawPerformancePreview(GuiGraphicsExtractor graphics, HudLayout.Bounds bounds) {
+        var visuals = config.visuals;
+        int width = performanceWidth();
+        int height = performanceHeight();
+        int color = 0xFF000000 | (ColorUtil.fromHex(visuals.performanceHudColorHex) & 0xFFFFFF);
+        graphics.pose().pushMatrix();
+        try {
+            graphics.pose().translate(bounds.x(), bounds.y());
+            graphics.pose().scale(bounds.scale(), bounds.scale());
+            if (visuals.performanceHudBackground) {
+                int alpha = Math.clamp(visuals.performanceHudBackgroundOpacity, 0, 255);
+                graphics.fill(0, 0, width, height, (alpha << 24) | 0x130D09);
+            }
+            graphics.text(Minecraft.getInstance().font, Component.literal(performanceText()), 6, 5, color, false);
+        } finally {
+            graphics.pose().popMatrix();
+        }
     }
 
     private void drawGrid(Object graphics) {
@@ -140,7 +175,11 @@ public final class HudEditorScreen extends StudioScreen {
         fillRect(graphics, handle.x() + 3, handle.y() + 6, 4, 1, C_TEXT);
         fillRect(graphics, handle.x() + 6, handle.y() + 3, 1, 4, C_TEXT);
 
-        String label = target == Target.SCOREBOARD ? "SCOREBOARD" : "ACTION BAR";
+        String label = switch (target) {
+            case SCOREBOARD -> "SCOREBOARD";
+            case ACTIONBAR -> "ACTION BAR";
+            case PERFORMANCE -> "FPS · PING · TPS";
+        };
         int tagY = Math.max(0, Math.round(b.y()) - 14);
         int tagX = Math.max(0, Math.min(width - getStringWidth(label) - 10, Math.round(b.x()) - 2));
         fillRoundRect(graphics, tagX, tagY, getStringWidth(label) + 10, 12, 3, 0xEA302219);
@@ -153,15 +192,19 @@ public final class HudEditorScreen extends StudioScreen {
         drawRoundBorder(graphics, panel.x(), panel.y(), panel.w(), panel.h(), 6, C_BORDER);
         drawMoveIcon(graphics, panel.x() + 10, panel.y() + 6);
         drawString(graphics, "HUD Editor", panel.x() + 27, panel.y() + 7, C_TEXT);
-        boolean enabled = selected == Target.SCOREBOARD ? config.enabled && config.scoreboard.enabled
-                : HudCustomizer.isCustomHudEnabled();
+        boolean enabled = switch (selected) {
+            case SCOREBOARD -> config.enabled && config.scoreboard.enabled;
+            case ACTIONBAR -> HudCustomizer.isCustomHudEnabled();
+            case PERFORMANCE -> config.enabled && config.visuals.enabled && config.visuals.performanceHud;
+        };
         String status = !enabled ? "Disabled in settings" : dirty ? "Unsaved changes" : "Drag to arrange";
         drawString(graphics, status, panel.x() + panel.w() - getStringWidth(status) - 10,
                 panel.y() + 7, dirty ? C_GOLD : C_TEXT_DIM);
         button(graphics, chip(0), "Scoreboard", selected == Target.SCOREBOARD, mx, my);
         button(graphics, chip(1), "Action bar", selected == Target.ACTIONBAR, mx, my);
-        button(graphics, chip(2), grid ? "Grid: on" : "Grid: off", grid, mx, my);
-        button(graphics, chip(3), "Reset", false, mx, my);
+        button(graphics, chip(2), "FPS / Ping / TPS", selected == Target.PERFORMANCE, mx, my);
+        button(graphics, chip(3), grid ? "Grid: on" : "Grid: off", grid, mx, my);
+        button(graphics, chip(4), "Reset", false, mx, my);
     }
 
     private void drawMoveIcon(Object graphics, int x, int y) {
@@ -209,8 +252,9 @@ public final class HudEditorScreen extends StudioScreen {
         if (backButton().hit(mx, my)) { onClose(); return true; }
         if (chip(0).hit(mx, my)) { selected = Target.SCOREBOARD; return true; }
         if (chip(1).hit(mx, my)) { selected = Target.ACTIONBAR; return true; }
-        if (chip(2).hit(mx, my)) { grid = !grid; return true; }
-        if (chip(3).hit(mx, my)) { resetSelected(); return true; }
+        if (chip(2).hit(mx, my)) { selected = Target.PERFORMANCE; return true; }
+        if (chip(3).hit(mx, my)) { grid = !grid; return true; }
+        if (chip(4).hit(mx, my)) { resetSelected(); return true; }
         if (toolbar().hit(mx, my) || footer().hit(mx, my)) return true;
 
         HudLayout.Bounds current = bounds(selected);
@@ -221,10 +265,12 @@ public final class HudEditorScreen extends StudioScreen {
             return true;
         }
 
-        Target other = selected == Target.SCOREBOARD ? Target.ACTIONBAR : Target.SCOREBOARD;
-        if (!hit(current, mx, my) && hit(bounds(other), mx, my)) {
-            selected = other;
-            current = bounds(selected);
+        if (!hit(current, mx, my)) {
+            for (Target target : Target.values()) if (hit(bounds(target), mx, my)) {
+                selected = target;
+                current = bounds(selected);
+                break;
+            }
         }
         if (hit(current, mx, my)) {
             drag = Drag.MOVE;
@@ -260,10 +306,12 @@ public final class HudEditorScreen extends StudioScreen {
     public boolean mouseScrolled(double mx, double my, double horizontal, double vertical) {
         if (toolbar().hit(mx, my) || footer().hit(mx, my)) return true;
         HudLayout.Bounds current = bounds(selected);
-        Target other = selected == Target.SCOREBOARD ? Target.ACTIONBAR : Target.SCOREBOARD;
-        if (!hit(current, mx, my) && hit(bounds(other), mx, my)) {
-            selected = other;
-            current = bounds(selected);
+        if (!hit(current, mx, my)) {
+            for (Target target : Target.values()) if (hit(bounds(target), mx, my)) {
+                selected = target;
+                current = bounds(selected);
+                break;
+            }
         }
         if (!hit(current, mx, my)) return false;
         place(current.x(), current.y(), scale() + (float) vertical * 0.05f, false);
@@ -277,7 +325,7 @@ public final class HudEditorScreen extends StudioScreen {
         if (key == 256) { onClose(); return true; }
         if (key == 71) { grid = !grid; return true; }
         if (key == 258) {
-            selected = selected == Target.SCOREBOARD ? Target.ACTIONBAR : Target.SCOREBOARD;
+            selected = Target.values()[(selected.ordinal() + 1) % Target.values().length];
             return true;
         }
         if (key == 82) { resetSelected(); return true; }
@@ -293,13 +341,27 @@ public final class HudEditorScreen extends StudioScreen {
     }
 
     private void place(float left, float top, float scale, boolean snap) {
+        if (selected == Target.PERFORMANCE) {
+            float fitted = Math.clamp(scale, HudLayout.MIN_SCALE, HudLayout.MAX_SCALE);
+            float widgetWidth = baseWidth() * fitted;
+            float widgetHeight = baseHeight() * fitted;
+            float nextLeft = snap ? Math.round(left / GRID_SIZE) * GRID_SIZE : left;
+            float nextTop = snap ? Math.round(top / GRID_SIZE) * GRID_SIZE : top;
+            nextLeft = Math.clamp(nextLeft, 0, Math.max(0, width - widgetWidth));
+            nextTop = Math.clamp(nextTop, 0, Math.max(0, height - widgetHeight));
+            performanceOffsetX = Math.round(nextLeft - 4);
+            performanceOffsetY = Math.round(nextTop - 4);
+            performanceScale = fitted;
+            dirty = true;
+            return;
+        }
         HudLayout.Placement placement = HudLayout.fromTopLeft(selected == Target.SCOREBOARD,
                 width, height, baseWidth(), baseHeight(), scale, left, top, snap);
         if (selected == Target.SCOREBOARD) {
             scoreboard.offsetX = placement.offsetX();
             scoreboard.offsetY = placement.offsetY();
             scoreboard.scale = placement.scale();
-        } else {
+        } else if (selected == Target.ACTIONBAR) {
             actionbarOffsetX = placement.offsetX();
             actionbarOffsetY = placement.offsetY();
             actionbarScale = placement.scale();
@@ -311,9 +373,12 @@ public final class HudEditorScreen extends StudioScreen {
         if (selected == Target.SCOREBOARD) {
             scoreboard.offsetX = scoreboard.offsetY = 0;
             scoreboard.scale = 1;
-        } else {
+        } else if (selected == Target.ACTIONBAR) {
             actionbarOffsetX = actionbarOffsetY = 0;
             actionbarScale = 1;
+        } else {
+            performanceOffsetX = performanceOffsetY = 0;
+            performanceScale = 1;
         }
         dirty = true;
     }
@@ -325,6 +390,9 @@ public final class HudEditorScreen extends StudioScreen {
         config.visuals.hudScale = actionbarScale;
         config.visuals.hudOffsetX = actionbarOffsetX;
         config.visuals.hudOffsetY = actionbarOffsetY;
+        config.visuals.performanceHudScale = performanceScale;
+        config.visuals.performanceHudOffsetX = performanceOffsetX;
+        config.visuals.performanceHudOffsetY = performanceOffsetY;
         config.save();
         onClose();
     }
@@ -343,31 +411,50 @@ public final class HudEditorScreen extends StudioScreen {
             return HudLayout.scoreboard(width, height, sidebarSize.width(), sidebarSize.height(),
                     scoreboard.scale, scoreboard.offsetX, scoreboard.offsetY);
         }
-        return HudLayout.actionbar(width, height, actionbarWidth, 9,
+        if (target == Target.ACTIONBAR) return HudLayout.actionbar(width, height, actionbarWidth, actionbarHeight,
                 actionbarScale, actionbarOffsetX, actionbarOffsetY);
+        float scale = Math.clamp(performanceScale, HudLayout.MIN_SCALE, HudLayout.MAX_SCALE);
+        float w = performanceWidth() * scale;
+        float h = performanceHeight() * scale;
+        return new HudLayout.Bounds(Math.clamp(4 + performanceOffsetX, 0, Math.max(0, width - w)),
+                Math.clamp(4 + performanceOffsetY, 0, Math.max(0, height - h)), w, h, scale);
     }
 
-    private int baseWidth() { return selected == Target.SCOREBOARD ? sidebarSize.width() : actionbarWidth; }
-    private int baseHeight() { return selected == Target.SCOREBOARD ? sidebarSize.height() : 9; }
-    private float scale() { return selected == Target.SCOREBOARD ? scoreboard.scale : actionbarScale; }
-    private int offsetX() { return selected == Target.SCOREBOARD ? scoreboard.offsetX : actionbarOffsetX; }
-    private int offsetY() { return selected == Target.SCOREBOARD ? scoreboard.offsetY : actionbarOffsetY; }
+    private int baseWidth() { return switch (selected) { case SCOREBOARD -> sidebarSize.width(); case ACTIONBAR -> actionbarWidth; case PERFORMANCE -> performanceWidth(); }; }
+    private int baseHeight() { return switch (selected) { case SCOREBOARD -> sidebarSize.height(); case ACTIONBAR -> actionbarHeight; case PERFORMANCE -> performanceHeight(); }; }
+    private float scale() { return switch (selected) { case SCOREBOARD -> scoreboard.scale; case ACTIONBAR -> actionbarScale; case PERFORMANCE -> performanceScale; }; }
+    private int offsetX() { return switch (selected) { case SCOREBOARD -> scoreboard.offsetX; case ACTIONBAR -> actionbarOffsetX; case PERFORMANCE -> performanceOffsetX; }; }
+    private int offsetY() { return switch (selected) { case SCOREBOARD -> scoreboard.offsetY; case ACTIONBAR -> actionbarOffsetY; case PERFORMANCE -> performanceOffsetY; }; }
 
-    private Rect toolbar() { return new Rect(6, 6, Math.min(420, width - 12), 44); }
+    private String performanceText() {
+        var visuals = config.visuals;
+        java.util.List<String> values = new java.util.ArrayList<>();
+        if (visuals.performanceShowFps) values.add("FPS 144");
+        if (visuals.performanceShowPing) values.add("PING 42 ms");
+        if (visuals.performanceShowTps) values.add("TPS 20.0");
+        return values.isEmpty() ? "PERFORMANCE" : String.join("  |  ", values);
+    }
+
+    private int performanceWidth() { return Minecraft.getInstance().font.width(performanceText()) + 12; }
+    private int performanceHeight() { return 19; }
+
+    private Rect toolbar() {
+        if (selected != Target.PERFORMANCE) return new Rect(6, 6, Math.min(540, width - 12), 44);
+        HudLayout.Bounds performance = bounds(Target.PERFORMANCE);
+        int rightX = Math.round(performance.x() + performance.width()) + 8;
+        int rightWidth = width - rightX - 6;
+        if (rightWidth >= 360) return new Rect(rightX, 6, Math.min(540, rightWidth), 44);
+        int belowY = Math.round(performance.y() + performance.height()) + 8;
+        if (belowY + 44 < height - 55) return new Rect(6, belowY, Math.min(540, width - 12), 44);
+        return new Rect(6, 6, Math.min(540, width - 12), 44);
+    }
     private Rect footer() { return new Rect(6, height - 49, width - 12, 43); }
     private Rect chip(int index) {
         Rect panel = toolbar();
-        int available = panel.w() - 16 - 12;
-        int first = available * 29 / 100;
-        int second = available * 27 / 100;
-        int third = available * 24 / 100;
-        return switch (index) {
-            case 0 -> new Rect(panel.x() + 8, panel.y() + 22, first, 17);
-            case 1 -> new Rect(panel.x() + 12 + first, panel.y() + 22, second, 17);
-            case 2 -> new Rect(panel.x() + 16 + first + second, panel.y() + 22, third, 17);
-            default -> new Rect(panel.x() + 20 + first + second + third, panel.y() + 22,
-                    available - first - second - third, 17);
-        };
+        int available = panel.w() - 16;
+        int w = available / 5;
+        int x = panel.x() + 8 + index * w;
+        return new Rect(x, panel.y() + 22, index == 4 ? available - w * 4 : w - 3, 17);
     }
     private Rect applyButton() { return new Rect(width - 70, height - 44, 55, 19); }
     private Rect backButton() { return new Rect(width - 123, height - 44, 48, 19); }

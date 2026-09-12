@@ -494,7 +494,8 @@ public class SkyCustomizerConfigScreen extends StudioScreen {
                     setting(null, "Levels in Chat", "Apply your level colors to chat messages.", SettingKind.TOGGLE, 7),
                     setting("Quick access", "Scoreboard", "Enable the custom scoreboard appearance.", SettingKind.TOGGLE, 8),
                     setting(null, "Armor Colors", "Enable custom leather and armor tint colors.", SettingKind.TOGGLE, 9),
-                    setting(null, "HUD Editor", "Drag and resize the scoreboard and actionbar with alignment guides.", SettingKind.ACTION, -2, "OPEN")
+                    setting(null, "HUD Editor", "Drag, resize and align the scoreboard, action bar and performance widget.", SettingKind.ACTION, -2, "OPEN"),
+                    setting(null, "Discord Rich Presence", "Customize your local Discord activity, status templates and art assets.", SettingKind.ACTION, -10, "OPEN")
             );
             case 1 -> List.of(
                     setting("Identity", "Name Customizer", "Allow custom name formatting in supported locations.", SettingKind.TOGGLE, 0),
@@ -521,7 +522,7 @@ public class SkyCustomizerConfigScreen extends StudioScreen {
                     setting(null, "Scoreboard Title", "Replacement title for the Hypixel sidebar.", SettingKind.INPUT, 6),
                     setting(null, "Title Color", "Hex color used for the custom title.", SettingKind.INPUT, 7),
                     setting("More options", "Scoreboard Editor", "Choose the Screenshot preset or create your own sidebar style.", SettingKind.ACTION, -1, "OPEN"),
-                    setting(null, "HUD Editor", "Move and resize your sidebar directly over the game.", SettingKind.ACTION, -2, "OPEN"),
+                    setting(null, "HUD Editor", "Move the sidebar, action bar and performance widget directly over the game.", SettingKind.ACTION, -2, "OPEN"),
                     setting(null, "Scoreboard Lines", "Edit hidden lines, replacements and extra sidebar text.", SettingKind.ACTION, -8, "OPEN")
             );
             case 4 -> List.of(
@@ -539,7 +540,7 @@ public class SkyCustomizerConfigScreen extends StudioScreen {
             );
             case 7 -> List.of(
                     setting("HUD", "Custom HUD", "Enable SkyCustomizer HUD styling where supported.", SettingKind.TOGGLE, 11),
-                    setting(null, "HUD Editor", "Drag, resize and align the scoreboard and actionbar.", SettingKind.ACTION, -2, "OPEN"),
+                    setting(null, "HUD Editor", "Drag, resize and align every HUD widget.", SettingKind.ACTION, -2, "OPEN"),
                     setting("Full editor", "HUD & Text Editor", "Configure title colors, bossbar and actionbar appearance.", SettingKind.ACTION, -7, "OPEN")
             );
             default -> List.of();
@@ -638,6 +639,7 @@ public class SkyCustomizerConfigScreen extends StudioScreen {
                                 case -5 -> FeatureEditorScreen.Page.ARMOR;
                                 case -6 -> FeatureEditorScreen.Page.CHAT;
                                 case -7 -> FeatureEditorScreen.Page.VISUALS;
+                                case -10 -> FeatureEditorScreen.Page.DISCORD;
                                 default -> FeatureEditorScreen.Page.SCOREBOARD;
                             };
                             minecraft.setScreen(new FeatureEditorScreen(this, page));

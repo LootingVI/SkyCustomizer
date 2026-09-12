@@ -183,6 +183,13 @@ public class SkyCustomizerConfig {
         public String favoriteMarker = "★";
         public boolean tooltipStyleEnabled = false;
         public String tooltipAccentHex = "#FFAA00";
+        public boolean tooltipCanvasEnabled = false;
+        public boolean tooltipCanvasPinned = false;
+        public int tooltipCanvasOffsetX = 0;
+        public int tooltipCanvasOffsetY = 0;
+        public int tooltipCanvasPinnedX = 24;
+        public int tooltipCanvasPinnedY = 24;
+        public float tooltipCanvasScale = 1.0f;
 
         public Map<String, String> heldItemNames = new LinkedHashMap<>();
         public Map<String, String> heldItemLore = new LinkedHashMap<>();
@@ -276,6 +283,13 @@ public class SkyCustomizerConfig {
         public boolean bossbarHide = false;
         public boolean actionbarCustom = true;
         public boolean actionbarHide = false;
+        public boolean actionbarComposerEnabled = false;
+        public boolean actionbarComposerShowHealth = true;
+        public boolean actionbarComposerShowDefense = true;
+        public boolean actionbarComposerShowMana = true;
+        public boolean actionbarComposerBackground = true;
+        public int actionbarComposerBackgroundOpacity = 118;
+        public int actionbarComposerGap = 4;
         public boolean vignetteHide = true;
         public boolean performanceHud = false;
         public boolean performanceShowFps = true;
@@ -287,6 +301,26 @@ public class SkyCustomizerConfig {
         public boolean performanceHudBackground = true;
         public int performanceHudBackgroundOpacity = 110;
         public String performanceHudColorHex = "#FFFFFF";
+    }
+
+    public DiscordConfig discord = new DiscordConfig();
+    public static class DiscordConfig {
+        public boolean enabled = false;
+        public String applicationId = "1548045408259932221";
+        public int reconnectSeconds = 10;
+        public int updateSeconds = 5;
+        public boolean showInMenus = false;
+        public boolean showTimestamp = true;
+        public boolean sharePlayer = true;
+        public boolean shareArea = true;
+        public boolean shareProfile = true;
+        public boolean shareServer = false;
+        public String details = "SkyBlock • {area}";
+        public String state = "{player} • {profile}";
+        public String largeImageKey = "skycustomizer_cover";
+        public String largeImageText = "SkyCustomizer • {area}";
+        public String smallImageKey = "";
+        public String smallImageText = "{player}";
     }
 
     public PresetConfig presets = new PresetConfig();
@@ -411,6 +445,7 @@ public class SkyCustomizerConfig {
         dst.armor = src.armor != null ? src.armor : new ArmorConfig();
         dst.chat = src.chat != null ? src.chat : new ChatConfig();
         dst.visuals = src.visuals != null ? src.visuals : new VisualsConfig();
+        dst.discord = src.discord != null ? src.discord : new DiscordConfig();
         dst.presets = src.presets != null ? src.presets : new PresetConfig();
         dst.debugMode = src.debugMode;
     }
@@ -481,10 +516,33 @@ public class SkyCustomizerConfig {
         if (cfg.items.itemTypeNames == null) cfg.items.itemTypeNames = new LinkedHashMap<>();
         if (cfg.items.favoriteItemTypes == null) cfg.items.favoriteItemTypes = new ArrayList<>();
         if (cfg.items.regexRules == null) cfg.items.regexRules = new ArrayList<>();
+        cfg.items.tooltipCanvasOffsetX = Math.clamp(cfg.items.tooltipCanvasOffsetX, -10000, 10000);
+        cfg.items.tooltipCanvasOffsetY = Math.clamp(cfg.items.tooltipCanvasOffsetY, -10000, 10000);
+        cfg.items.tooltipCanvasPinnedX = Math.clamp(cfg.items.tooltipCanvasPinnedX, 0, 10000);
+        cfg.items.tooltipCanvasPinnedY = Math.clamp(cfg.items.tooltipCanvasPinnedY, 0, 10000);
+        cfg.items.tooltipCanvasScale = Math.clamp(cfg.items.tooltipCanvasScale, 0.5f, 2.0f);
         if (cfg.visuals == null) cfg.visuals = new VisualsConfig();
+        cfg.visuals.actionbarComposerBackgroundOpacity = Math.clamp(cfg.visuals.actionbarComposerBackgroundOpacity, 0, 255);
+        cfg.visuals.actionbarComposerGap = Math.clamp(cfg.visuals.actionbarComposerGap, 0, 12);
         cfg.visuals.performanceHudScale = Math.clamp(cfg.visuals.performanceHudScale, 0.5f, 3.0f);
         cfg.visuals.performanceHudBackgroundOpacity = Math.clamp(cfg.visuals.performanceHudBackgroundOpacity, 0, 255);
+        if (cfg.discord == null) cfg.discord = new DiscordConfig();
+        cfg.discord.applicationId = limit(cfg.discord.applicationId, 32);
+        if (cfg.discord.applicationId.isBlank()) cfg.discord.applicationId = new DiscordConfig().applicationId;
+        cfg.discord.details = limit(cfg.discord.details, 128);
+        cfg.discord.state = limit(cfg.discord.state, 128);
+        cfg.discord.largeImageKey = limit(cfg.discord.largeImageKey, 128);
+        cfg.discord.largeImageText = limit(cfg.discord.largeImageText, 128);
+        cfg.discord.smallImageKey = limit(cfg.discord.smallImageKey, 128);
+        cfg.discord.smallImageText = limit(cfg.discord.smallImageText, 128);
+        cfg.discord.reconnectSeconds = Math.clamp(cfg.discord.reconnectSeconds, 3, 120);
+        cfg.discord.updateSeconds = Math.clamp(cfg.discord.updateSeconds, 2, 120);
         if (cfg.presets == null) cfg.presets = new PresetConfig();
         if (cfg.presets.savedPresets == null) cfg.presets.savedPresets = new ArrayList<>();
+    }
+
+    private static String limit(String value, int length) {
+        if (value == null) return "";
+        return value.codePointCount(0, value.length()) <= length ? value : value.substring(0, value.offsetByCodePoints(0, length));
     }
 }

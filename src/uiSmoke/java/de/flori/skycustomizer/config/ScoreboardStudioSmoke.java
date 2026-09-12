@@ -34,6 +34,7 @@ final class ScoreboardStudioSmoke {
     static void drop(ScoreboardEditorScreen screen) { screen.onFilesDrop(List.of(FIXTURE)); }
     static void check(ScoreboardEditorScreen screen) throws Exception {
         check(importError == null && imported != null, "Background image import completed");
+        check(ScoreboardBackgrounds.gallery().contains(imported), "Imported image appears in the gallery");
         check(ScoreboardBackgrounds.ready(imported), "Image uploaded as a renderable texture");
         var style = (SkyCustomizerConfig.ScoreboardConfig)get(screen, "staged");
         check(style.backgroundImage.equals(imported) && style.backgroundImageEnabled, "Drag-and-drop keeps imported image in draft");
