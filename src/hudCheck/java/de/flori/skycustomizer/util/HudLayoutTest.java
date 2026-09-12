@@ -55,6 +55,8 @@ public final class HudLayoutTest {
         catch(Exception e){throw new AssertionError("Studio checks failed",e);}
         try { de.flori.skycustomizer.discord.DiscordRpcChecks.run(); }
         catch(Exception e){throw new AssertionError("Discord RPC checks failed",e);}
+        try { de.flori.skycustomizer.discord.DiscordPlaceholderChecks.run(); }
+        catch(Exception e){throw new AssertionError("Discord placeholder checks failed",e);}
     }
 
     private static void near(float actual, float expected, String message) {

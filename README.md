@@ -60,6 +60,22 @@ Open **General → Discord Rich Presence** to configure a local Discord activity
 
 Text supports `{player}`, `{area}`, `{profile}`, `{server}` and `{game}`. `{profile}` is the selected SkyCustomizer profile. Area detection reads the original server scoreboard, independently of local line replacements. Privacy switches decide which live values may be resolved; server sharing is off by default.
 
+Click **{}** beside **Details**, **State**, **Large Image Text** or **Small Image Text** to open the searchable placeholder browser. Clicking an entry inserts it at the cursor or replaces the selected text; undo/redo is supported. Arrow keys select entries and Enter inserts one. Examples use the neutral name **Player**, not your account. Actual activity always uses live values.
+
+Available placeholders:
+
+- Identity: `{player}`, `{custom_name}`, `{area}`, `{profile}`, `{server}`, `{game}`, `{version}`, `{session}`.
+- Equipment: `{item}`, `{item_id}`, `{item_count}`, `{item_durability}`, `{offhand}`, `{offhand_count}`, `{helmet}`, `{chestplate}`, `{leggings}`, `{boots}`. Display names include local item renames. The item ID is the Minecraft registry ID, not a SkyBlock item ID; durability is remaining/max or `N/A` for non-damageable items.
+- Vanilla player stats: `{health}`, `{max_health}`, `{absorption}`, `{food}`, `{xp_level}`, `{xp_progress}`. These are **not** SkyBlock HP or SkyBlock level.
+- Performance: `{fps}`, `{ping}` (milliseconds). Ping is empty when unavailable.
+- Location: `{coords}`, `{x}`, `{y}`, `{z}`, `{dimension}`, `{biome}`. Coordinates are exact block positions; dimension and biome are Minecraft IDs. **Share Position is off by default.**
+
+Equipment, stats, performance and location have separate **Privacy** switches. Disabled or unavailable values become empty; a genuinely empty hand shows `Empty` and a count of `0`. The editor preview uses examples and follows the same privacy switches, while the actual connection collects available data at most once per second and sends it at the configured update interval.
+
+Example Details: `Using {item}`. Example State: `{area} • {fps} FPS • {ping} ms`.
+
+![Searchable Discord placeholders](docs/screenshots/discord-placeholders.png)
+
 **Connection status** reports `Activity confirmed by Discord` only after Discord acknowledges the activity. If it is confirmed but not visible, check activity sharing in Discord's **Activity Privacy** settings. `Waiting for a world` means **Show in menus** is off. If Discord is unavailable or restarts, the client retries automatically; **Save & Reconnect** also restarts the connection manually. The connection runs in background threads, not on Minecraft's rendering thread.
 
 ![Discord Rich Presence settings](docs/screenshots/discord-rich-presence.png)

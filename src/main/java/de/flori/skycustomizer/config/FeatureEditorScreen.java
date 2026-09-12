@@ -3,6 +3,7 @@ package de.flori.skycustomizer.config;
 import com.google.gson.Gson;
 import de.flori.skycustomizer.features.ChatCustomizer;
 import de.flori.skycustomizer.features.DiscordRichPresence;
+import de.flori.skycustomizer.discord.DiscordPlaceholders;
 import de.flori.skycustomizer.util.ColorUtil;
 import de.flori.skycustomizer.util.ItemIdentity;
 import de.flori.skycustomizer.util.RegexCache;
@@ -219,8 +220,8 @@ public final class FeatureEditorScreen extends StudioScreen {
                 section("ADVANCED CONNECTION", "The Application ID only needs changing when you use your own Discord application.");
                 fields("applicationId,reconnectSeconds,updateSeconds,showTimestamp");
                 section("PRIVACY", "Choose which live values template variables may reveal in your Discord activity.");
-                fields("sharePlayer,shareArea,shareProfile,shareServer");
-                section("PRESENCE TEXT", "Variables: {player}, {area}, {profile}, {server}, {game}. Leave a field empty to hide it.");
+                fields("sharePlayer,shareArea,shareProfile,shareServer,shareEquipment,shareStats,sharePerformance,sharePosition");
+                section("PRESENCE TEXT", "Click {} beside a text field to search and insert placeholders at your cursor.");
                 fields("details,state");
                 section("ART ASSETS", "Upload keys in Discord Developer Portal → Rich Presence → Art Assets, then use their lowercase keys here.");
                 fields("largeImageKey,largeImageText,smallImageKey,smallImageText");
@@ -339,13 +340,17 @@ public final class FeatureEditorScreen extends StudioScreen {
             case "updateSeconds" -> "Minimum seconds between Rich Presence updates: 2–120.";
             case "showInMenus" -> "Also publish while no world is open. Enable this to test in the main menu.";
             case "showTimestamp" -> "Show time elapsed since this Minecraft session began.";
-            case "sharePlayer" -> "Allow {player} to resolve to your Minecraft username.";
+            case "sharePlayer" -> "Allow {player} and {custom_name} to reveal your player name.";
             case "shareArea" -> "Allow {area} to resolve from your SkyBlock scoreboard.";
             case "shareProfile" -> "Allow {profile} to resolve to the active SkyCustomizer profile.";
             case "shareServer" -> "Allow {server} to resolve to the current server address.";
-            case "details", "state" -> "Normal text plus {player}, {area}, {profile}, {server} and {game}.";
+            case "shareEquipment" -> "Allow main hand, offhand and armor placeholders to reveal equipment.";
+            case "shareStats" -> "Allow vanilla health, food and XP values. These are not SkyBlock stats.";
+            case "sharePerformance" -> "Allow {fps} and {ping} to show client performance.";
+            case "sharePosition" -> "Share exact coordinates, dimension and biome. Off by default.";
+            case "details", "state" -> "Example: Using {item} in {area}. Click {} to browse all placeholders.";
             case "largeImageKey", "smallImageKey" -> "Discord Rich Presence art-asset key, normally lowercase.";
-            case "largeImageText", "smallImageText" -> "Tooltip text shown when Discord users hover over this image.";
+            case "largeImageText", "smallImageText" -> "Image hover text; click {} to insert a placeholder.";
             case "applyInScoreboard" -> "Customize your name inside sidebar lines.";
             default -> key.toLowerCase(Locale.ROOT).endsWith("hex") ? "Choose a color or enter #RRGGBB."
                     : "Changes take effect when you save.";
@@ -444,7 +449,7 @@ public final class FeatureEditorScreen extends StudioScreen {
     private void drawSidePreview(GuiGraphicsExtractor g) {
         int x=px+pw+8,w=previewW-22,y=py+39;
         fillRect(g,px+pw,py+30,1,ph-45,C_BORDER);
-        drawString(g,"LIVE PREVIEW",x+8,y,C_GOLD);
+        drawString(g,page==Page.DISCORD?"EXAMPLE PREVIEW":"LIVE PREVIEW",x+8,y,C_GOLD);
         drawString(g,"SAVED",x+8,y+25,C_TEXT_DIM);
         Component saved=page==Page.NAME ? namePreview(config.name,minecraft.getUser().getName()) : page==Page.ITEMS
                 ? TextUtil.parseLegacyFormatting(config.items.heldItemNames.getOrDefault(selectedItem,
@@ -480,8 +485,8 @@ public final class FeatureEditorScreen extends StudioScreen {
             drawRoundBorder(g,x+8,cardY,w-16,66,6,C_BORDER);
             fillRoundRect(g,x+16,cardY+10,30,30,5,C_GOLD_DARK);
             drawCenteredString(g,"D",x+31,cardY+20,C_TEXT);
-            drawString(g,fit(discordPart(d.details),w-64),x+54,cardY+11,C_TEXT);
-            drawString(g,fit(discordPart(d.state),w-64),x+54,cardY+25,C_TEXT_DIM);
+            drawString(g,fit(DiscordPlaceholders.preview(d.details,d),w-64),x+54,cardY+11,C_TEXT);
+            drawString(g,fit(DiscordPlaceholders.preview(d.state,d),w-64),x+54,cardY+25,C_TEXT_DIM);
             drawString(g,d.enabled?"LOCAL RPC · ON":"LOCAL RPC · OFF",x+16,cardY+49,d.enabled?C_GOLD:C_TEXT_DIM);
         }
         g.disableScissor();
@@ -503,14 +508,9 @@ public final class FeatureEditorScreen extends StudioScreen {
     }
 
     private static String discordPreview(SkyCustomizerConfig.DiscordConfig settings) {
-        String details=discordPart(settings.details),state=discordPart(settings.state);
+        String details=DiscordPlaceholders.preview(settings.details,settings),state=DiscordPlaceholders.preview(settings.state,settings);
         if(details.isEmpty()) details="SkyCustomizer";
         return state.isEmpty()?details:details+"  •  "+state;
-    }
-    private static String discordPart(String template) {
-        String text=Objects.toString(template,"");
-        return text.replace("{player}","megaPIZZA").replace("{area}","Mining District")
-                .replace("{profile}","default").replace("{server}","mc.hypixel.net").replace("{game}","Minecraft");
     }
 
     private void captureHeld() {
@@ -666,10 +666,11 @@ public final class FeatureEditorScreen extends StudioScreen {
     private final class TextRow extends Row {
         final EditBox box;
         final Function<String, String> setter;
-        final boolean color, formatting;
+        final boolean color, formatting, placeholders;
         String error; boolean loading;
         TextRow(String title, String hint, String value, Function<String, String> setter, boolean color, boolean formatting) {
             super(title, hint); this.setter = setter; this.color = color; this.formatting = formatting;
+            placeholders = page == Page.DISCORD && Set.of("Details", "State", "Large Image Text", "Small Image Text").contains(title);
             box = edit(title, value);
             box.setResponder(text -> { if (!loading) { error = setter.apply(text); changed(); } });
         }
@@ -680,24 +681,31 @@ public final class FeatureEditorScreen extends StudioScreen {
             box.visible = visible;
             if (!visible) return;
             box.setX(px + 29); box.setY(y + 44);
-            box.setWidth(rowW() - (color || formatting ? 62 : 28));
+            box.setWidth(rowW() - (color || formatting || placeholders ? 62 : 28));
         }
         @Override void draw(GuiGraphicsExtractor g, int mx, int my, float delta) {
             card(g);
             drawString(g, fit(title, rowW() - 88), px + 23, y + 7, C_TEXT);
             drawString(g, fit(error == null ? hint : error, rowW() - 16), px + 23, y + 20, error == null ? C_TEXT_DIM : C_RED);
-            fillRoundRect(g, px + 23, y + 35, rowW() - (color || formatting ? 48 : 18), 25, 4, C_INPUT);
+            fillRoundRect(g, px + 23, y + 35, rowW() - (color || formatting || placeholders ? 48 : 18), 25, 4, C_INPUT);
             if (error != null) drawBorder(g, px + 23, y + 35, box.getWidth() + 12, 25, C_RED);
             box.extractRenderState(g, mx, my, delta);
-            if (color || formatting) {
+            if (color || formatting || placeholders) {
                 int swatch = color && normalizeColor(box.getValue()) != null ? ColorUtil.fromHex(box.getValue()) : C_GOLD;
                 fillRoundRect(g, px + pw - 49, y + 36, 25, 23, 5, 0xFF000000 | swatch);
                 if (formatting) drawCenteredString(g, "+", px + pw - 36, y + 44, C_TEXT);
+                if (placeholders) drawCenteredString(g, "{}", px + pw - 36, y + 44, C_TEXT);
             }
         }
         @Override boolean validate() { error = setter.apply(box.getValue()); return error == null; }
         @Override boolean click(double x, double my) {
-            if (!(color || formatting) || !hit(x, my, px + pw - 49, y + 36, 25, 23)) return false;
+            if (!(color || formatting || placeholders) || !hit(x, my, px + pw - 49, y + 36, 25, 23)) return false;
+            if (placeholders) {
+                checkpoint();
+                minecraft.setScreen(new DiscordPlaceholderScreen(FeatureEditorScreen.this, (SkyCustomizerConfig.DiscordConfig) draft,
+                        token -> { box.insertText(token); checkpoint(); }));
+                return true;
+            }
             openPicker(box, color); return true;
         }
     }

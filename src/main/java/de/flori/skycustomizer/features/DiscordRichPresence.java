@@ -3,8 +3,13 @@ package de.flori.skycustomizer.features;
 import com.google.gson.JsonObject;
 import de.flori.skycustomizer.config.SkyCustomizerConfig;
 import de.flori.skycustomizer.discord.DiscordIpcClient;
+import de.flori.skycustomizer.discord.DiscordPlaceholders;
 import de.flori.skycustomizer.util.TextUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.SharedConstants;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.PlayerTeam;
 
@@ -14,6 +19,7 @@ import java.util.Map;
 
 public final class DiscordRichPresence {
     private static final long SESSION_START = Instant.now().getEpochSecond();
+    private static final long SESSION_NANOS = System.nanoTime();
     private static final DiscordIpcClient CLIENT = new DiscordIpcClient();
     private static long nextSnapshot, lastRevision = -1;
 
@@ -53,16 +59,16 @@ public final class DiscordRichPresence {
     private static JsonObject activity(SkyCustomizerConfig.DiscordConfig settings, Map<String, String> values) {
         JsonObject result = new JsonObject();
         result.addProperty("type", 0);
-        put(result, "details", template(settings.details, values));
-        put(result, "state", template(settings.state, values));
+        put(result, "details", DiscordPlaceholders.render(settings.details, values, settings));
+        put(result, "state", DiscordPlaceholders.render(settings.state, values, settings));
         JsonObject assets = new JsonObject();
         if (settings.largeImageKey != null && !settings.largeImageKey.isBlank()) {
             put(assets, "large_image", settings.largeImageKey.trim());
-            put(assets, "large_text", template(settings.largeImageText, values));
+            put(assets, "large_text", DiscordPlaceholders.render(settings.largeImageText, values, settings));
         }
         if (settings.smallImageKey != null && !settings.smallImageKey.isBlank()) {
             put(assets, "small_image", settings.smallImageKey.trim());
-            put(assets, "small_text", template(settings.smallImageText, values));
+            put(assets, "small_text", DiscordPlaceholders.render(settings.smallImageText, values, settings));
         }
         if (!assets.isEmpty()) result.add("assets", assets);
         if (settings.showTimestamp) {
@@ -79,14 +85,64 @@ public final class DiscordRichPresence {
 
     private static Map<String, String> variables(Minecraft minecraft, SkyCustomizerConfig cfg, SkyCustomizerConfig.DiscordConfig settings) {
         Map<String, String> values = new LinkedHashMap<>();
-        values.put("{player}", settings.sharePlayer ? minecraft.getUser().getName() : "");
-        values.put("{area}", settings.shareArea ? area(minecraft) : "");
-        values.put("{profile}", settings.shareProfile ? cfg.presets.currentPreset : "");
+        if (settings.sharePlayer) {
+            values.put("player", minecraft.getUser().getName());
+            values.put("custom_name", NameCustomizer.customizeName(minecraft.getUser().getName()).getString());
+        }
+        if (settings.shareArea) values.put("area", area(minecraft));
+        if (settings.shareProfile) values.put("profile", cfg.presets.currentPreset);
         var server = minecraft.getCurrentServer();
-        values.put("{server}", settings.shareServer ? server == null ? minecraft.player == null ? "Main menu" : "Singleplayer" : server.ip : "");
-        values.put("{game}", "Minecraft");
+        if (settings.shareServer) values.put("server", server == null ? minecraft.player == null ? "Main menu" : "Singleplayer" : server.ip);
+        values.put("game", "Minecraft");
+        values.put("version", SharedConstants.getCurrentVersion().name());
+        long minutes = Math.max(0, (System.nanoTime() - SESSION_NANOS) / 60_000_000_000L);
+        values.put("session", minutes < 60 ? minutes + "m" : minutes / 60 + "h " + minutes % 60 + "m");
+        if (settings.sharePerformance) values.put("fps", Integer.toString(minecraft.getFps()));
+        var player = minecraft.player;
+        if (player == null) return values;
+        if (settings.shareEquipment) {
+            hand(values, player.getMainHandItem(), player.getOffhandItem());
+            values.put("helmet", itemName(player.getItemBySlot(EquipmentSlot.HEAD)));
+            values.put("chestplate", itemName(player.getItemBySlot(EquipmentSlot.CHEST)));
+            values.put("leggings", itemName(player.getItemBySlot(EquipmentSlot.LEGS)));
+            values.put("boots", itemName(player.getItemBySlot(EquipmentSlot.FEET)));
+        }
+        if (settings.shareStats) {
+            values.put("health", number(player.getHealth()));
+            values.put("max_health", number(player.getMaxHealth()));
+            values.put("absorption", number(player.getAbsorptionAmount()));
+            values.put("food", Integer.toString(player.getFoodData().getFoodLevel()));
+            values.put("xp_level", Integer.toString(player.experienceLevel));
+            values.put("xp_progress", Math.round(Math.clamp(player.experienceProgress, 0, 1) * 100) + "%");
+        }
+        if (settings.sharePerformance && minecraft.getConnection() != null) {
+            var info = minecraft.getConnection().getPlayerInfo(player.getUUID());
+            if (info != null) values.put("ping", Integer.toString(Math.max(0, info.getLatency())));
+        }
+        if (settings.sharePosition && minecraft.level != null) {
+            var pos = player.blockPosition();
+            values.put("x", Integer.toString(pos.getX()));
+            values.put("y", Integer.toString(pos.getY()));
+            values.put("z", Integer.toString(pos.getZ()));
+            values.put("coords", pos.getX() + ", " + pos.getY() + ", " + pos.getZ());
+            values.put("dimension", minecraft.level.dimension().identifier().toString());
+            values.put("biome", minecraft.level.getBiome(pos).unwrapKey().map(key -> key.identifier().toString()).orElse(""));
+        }
         return values;
     }
+
+    private static void hand(Map<String, String> values, ItemStack main, ItemStack offhand) {
+        values.put("item", itemName(main));
+        values.put("item_id", main.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(main.getItem()).toString());
+        values.put("item_count", Integer.toString(main.getCount()));
+        values.put("item_durability", main.isEmpty() ? "" : main.isDamageableItem()
+                ? Math.max(0, main.getMaxDamage() - main.getDamageValue()) + "/" + main.getMaxDamage() : "N/A");
+        values.put("offhand", itemName(offhand));
+        values.put("offhand_count", Integer.toString(offhand.getCount()));
+    }
+
+    private static String itemName(ItemStack stack) { return stack.isEmpty() ? "Empty" : stack.getHoverName().getString(); }
+    private static String number(float value) { return java.math.BigDecimal.valueOf(Math.round(value * 10) / 10.0).stripTrailingZeros().toPlainString(); }
 
     private static String area(Minecraft minecraft) {
         if (minecraft.level == null) return "Main menu";
@@ -107,11 +163,4 @@ public final class DiscordRichPresence {
         return minecraft.getCurrentServer() == null ? "Singleplayer" : "Exploring";
     }
 
-    private static String template(String source, Map<String, String> values) {
-        String text = source == null ? "" : source;
-        for (var entry : values.entrySet()) text = text.replace(entry.getKey(), entry.getValue() == null ? "" : entry.getValue());
-        text = TextUtil.stripLegacyFormatting(text).replaceAll("[\\p{Cntrl}\\s]+", " ").trim();
-        if (text.codePointCount(0, text.length()) > 128) text = text.substring(0, text.offsetByCodePoints(0, 128));
-        return text;
-    }
 }

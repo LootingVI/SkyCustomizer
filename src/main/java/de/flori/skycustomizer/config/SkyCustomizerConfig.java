@@ -315,6 +315,10 @@ public class SkyCustomizerConfig {
         public boolean shareArea = true;
         public boolean shareProfile = true;
         public boolean shareServer = false;
+        public boolean shareEquipment = true;
+        public boolean shareStats = true;
+        public boolean sharePerformance = true;
+        public boolean sharePosition = false;
         public String details = "SkyBlock • {area}";
         public String state = "{player} • {profile}";
         public String largeImageKey = "skycustomizer_cover";

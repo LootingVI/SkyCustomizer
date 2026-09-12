@@ -25,6 +25,8 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
             var c=SkyCustomizerConfig.get();
             try { NamePresentationSmoke.run(mc); }
             catch (Throwable error) { failed = true; error.printStackTrace(); }
+            try { DiscordPlaceholderSmoke.runtime(mc); }
+            catch (Throwable error) { failed = true; error.printStackTrace(); }
             ScoreboardStudioSmoke.prepare();
             c.items.heldItemLabels.put("uuid:preview","Hyperion");c.items.heldItemNames.put("uuid:preview","&#E2944E&lEmber Blade");
             c.items.heldItemLore.put("uuid:preview","&7Forged for exploration\\n&#55FFFFA little more personal.");
@@ -48,7 +50,10 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
                     ()->ScoreboardStudioSmoke.screen(mc,true,0),()->ScoreboardStudioSmoke.screen(mc,true,2),
                     ()->ScoreboardStudioSmoke.screen(mc,true,0),
                     ()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD),
-                    ()->{mc.options.guiScale().set(2);mc.resizeGui();return new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD);});
+                    ()->{mc.options.guiScale().set(2);mc.resizeGui();return new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD);},
+                    ()->new FeatureEditorScreen(null,FeatureEditorScreen.Page.DISCORD,"state"),
+                    ()->new DiscordPlaceholderScreen(null,c.discord,v->{}),
+                    ()->compact(mc,()->new DiscordPlaceholderScreen(null,c.discord,v->{})));
             c.ui.favorites.add("NAME|Custom name");
             c.savePreset("smoke-reference");
             c.scoreboard.titleColorHex="#E2944E";
@@ -61,6 +66,10 @@ public final class UiSmokeTest implements net.fabricmc.api.ClientModInitializer 
         catch(Throwable error) { failed=true; error.printStackTrace(); }
         if(stage==22&&ticks==5)try { ScoreboardStudioSmoke.inlineExample((ScoreboardEditorScreen)mc.screen); }
         catch(Throwable error) { failed=true; error.printStackTrace(); }
+        if(stage==26&&ticks==10)try { DiscordPlaceholderSmoke.insertion(mc); }
+        catch(Throwable error) { failed=true; error.printStackTrace(); }
+        if(stage==27&&ticks==5)DiscordPlaceholderSmoke.search(mc.screen,"item");
+        if(stage==28&&ticks==5)DiscordPlaceholderSmoke.search(mc.screen,"position");
         if(++ticks<35)return;
         capturing=true;int current=stage;
         Screenshot.takeScreenshot(mc.getMainRenderTarget(),image->{
